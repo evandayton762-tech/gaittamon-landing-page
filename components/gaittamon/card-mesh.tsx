@@ -86,8 +86,8 @@ export function CardMesh({
   const pointer = useRef({ x: 0, y: 0 })
 
   const [front, back] = useLoader(THREE.TextureLoader, [
-    "/card-front.png",
-    "/cardback.png",
+    "/card-front.png", // Cindrake card art (updated)
+    "/cardback.png",   // purple vortex back
   ])
   front.colorSpace = THREE.SRGBColorSpace
   back.colorSpace = THREE.SRGBColorSpace

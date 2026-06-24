@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import dynamic from "next/dynamic"
 import { ScouterUi } from "./scouter-ui"
 import { CtaButton } from "./cta-button"
@@ -224,29 +224,58 @@ export function Experience() {
   )
 }
 
+function FadeUp({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect() } },
+      { threshold: 0.15 },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+  return (
+    <div
+      ref={ref}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(32px)",
+        transition: "opacity 0.7s ease, transform 0.7s ease",
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
 function GameplayFooter() {
   return (
     <section className="relative z-30 w-full">
       {/* 03 Ranked — CTA first so users see "Enter the Portal" before
-          scrolling down to the video, not after. */}
-      <div className="mx-auto max-w-lg px-6 pb-12 pt-24 text-center">
-        <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-cyan-glow">
-          03 — Ranked
-        </p>
-        <h2 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-          The Meta Never Sleeps.
-        </h2>
-        <p className="mx-auto mt-5 max-w-md text-pretty leading-relaxed text-foreground/75">
-          Take your fusions to the Ranked Ladder. Test your deck against endless
-          combinations.
-        </p>
-        <div className="mt-9">
-          <CtaButton variant="gold">Enter the Portal</CtaButton>
+          scrolling down to the video, not after. Fades up on scroll-in. */}
+      <FadeUp>
+        <div className="mx-auto max-w-lg px-6 pb-16 pt-28 text-center">
+          <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-cyan-glow">
+            03 — Ranked
+          </p>
+          <h2 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+            The Meta Never Sleeps.
+          </h2>
+          <p className="mx-auto mt-5 max-w-md text-pretty leading-relaxed text-foreground/75">
+            Take your fusions to the Ranked Ladder. Test your deck against endless
+            combinations.
+          </p>
+          <div className="mt-9">
+            <CtaButton variant="gold">Enter the Portal</CtaButton>
+          </div>
         </div>
-      </div>
+      </FadeUp>
 
-      {/* Gameplay video — directly below the CTA so it's immediately visible */}
-      <div className="mx-auto max-w-6xl px-6 pb-24 pt-4">
+      {/* Gameplay video — more breathing room above so it doesn't feel crammed */}
+      <div className="mx-auto max-w-6xl px-6 pb-24 pt-10">
         <div className="mb-10 text-center">
           <p className="mb-3 font-mono text-xs uppercase tracking-[0.4em] text-cyan-glow/80">
             Gameplay

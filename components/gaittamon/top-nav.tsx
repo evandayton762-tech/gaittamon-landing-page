@@ -1,54 +1,65 @@
 "use client"
 
-// Fixed top navigation bar. Stays at the top of the viewport at all times.
-// Links: How to Play, Cards, Lore, Discord (with icon) + Play CTA button.
+import Image from "next/image"
+
+// Fixed top navigation bar — always on top, never scrolls away.
 export function TopNav() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 flex items-center justify-between px-6 py-4 sm:px-10">
-      {/* Wordmark */}
-      <span
-        className="font-sans text-lg font-black tracking-tight text-foreground text-glow-cyan"
-        aria-label="Gaittamon"
-      >
-        GAITTAMON
-      </span>
+    <header className="fixed inset-x-0 top-0 z-50 flex items-center justify-between px-6 py-3 sm:px-10">
+      {/* Logo */}
+      <a href="/" aria-label="Gaittamon home">
+        <Image
+          src="/gaittamon-logo.png"
+          alt="Gaittamon"
+          width={160}
+          height={72}
+          priority
+          className="h-14 w-auto object-contain drop-shadow-[0_0_12px_rgba(255,180,0,0.5)]"
+        />
+      </a>
 
-      {/* Links */}
+      {/* Desktop nav */}
       <nav
         aria-label="Main navigation"
-        className="hidden items-center gap-x-7 sm:flex"
+        className="hidden items-center sm:flex"
       >
-        <a
-          href="#how-to-play"
-          className="font-mono text-xs uppercase tracking-[0.2em] text-foreground/60 transition-colors hover:text-cyan-glow"
-        >
-          How to Play
-        </a>
-        <a
-          href="#cards"
-          className="font-mono text-xs uppercase tracking-[0.2em] text-foreground/60 transition-colors hover:text-cyan-glow"
-        >
-          Cards
-        </a>
-        <a
-          href="#lore"
-          className="font-mono text-xs uppercase tracking-[0.2em] text-foreground/60 transition-colors hover:text-cyan-glow"
-        >
-          Lore
-        </a>
+        {/* Links separated by cyan dividers */}
+        {[
+          { label: "How to Play", href: "#how-to-play" },
+          { label: "Cards",       href: "#cards" },
+          { label: "Lore",        href: "#lore" },
+        ].map((link, i) => (
+          <span key={link.href} className="flex items-center">
+            {i > 0 && (
+              <span
+                aria-hidden="true"
+                className="mx-5 h-4 w-px bg-cyan-glow/40"
+              />
+            )}
+            <a
+              href={link.href}
+              className="font-mono text-xs uppercase tracking-[0.22em] text-foreground/60 transition-colors hover:text-cyan-glow"
+            >
+              {link.label}
+            </a>
+          </span>
+        ))}
 
-        {/* Discord link with logo */}
+        {/* Cyan divider before Discord */}
+        <span aria-hidden="true" className="mx-5 h-4 w-px bg-cyan-glow/40" />
+
+        {/* Discord */}
         <a
           href="https://discord.gg/"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.2em] text-foreground/60 transition-colors hover:text-[#5865F2]"
+          className="flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.22em] text-foreground/60 transition-colors hover:text-[#5865F2]"
           aria-label="Join our Discord"
         >
           <svg
             aria-hidden="true"
-            width="16"
-            height="12"
+            width="15"
+            height="11"
             viewBox="0 0 24 18"
             fill="currentColor"
           >
@@ -57,10 +68,10 @@ export function TopNav() {
           Discord
         </a>
 
-        {/* Play CTA */}
+        {/* Play CTA — bigger, gold-accented */}
         <a
           href="#play"
-          className="ml-2 rounded-full border border-cyan-glow/60 bg-cyan-glow/10 px-5 py-1.5 font-mono text-xs uppercase tracking-[0.2em] text-cyan-glow shadow-glow-cyan transition-colors hover:bg-cyan-glow/20"
+          className="ml-8 rounded-full border-2 border-gold/70 bg-gold/10 px-7 py-2.5 font-mono text-sm font-semibold uppercase tracking-[0.22em] text-gold shadow-[0_0_18px_color-mix(in_oklch,var(--gold)_35%,transparent)] transition-all hover:bg-gold/20 hover:shadow-[0_0_28px_color-mix(in_oklch,var(--gold)_55%,transparent)]"
         >
           Play
         </a>
@@ -69,7 +80,7 @@ export function TopNav() {
       {/* Mobile: just the Play button */}
       <a
         href="#play"
-        className="flex sm:hidden rounded-full border border-cyan-glow/60 bg-cyan-glow/10 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.2em] text-cyan-glow"
+        className="flex sm:hidden rounded-full border-2 border-gold/70 bg-gold/10 px-5 py-2 font-mono text-sm font-semibold uppercase tracking-[0.18em] text-gold"
       >
         Play
       </a>

@@ -14,25 +14,28 @@ const POINTS: {
 }[] = [
   {
     id: "name",
-    dot: [29, 34],
-    label: [44, 23],
-    text: "Mystitoad · Exalted",
+    // Crown area of the card — shifted right with the reticle
+    dot: [36, 32],
+    label: [53, 21],
+    text: "Cindrake · Common",
     align: "start",
     origin: "left",
   },
   {
     id: "tier",
-    dot: [36, 54],
-    label: [44, 58],
-    text: "Lv. 20 · Tier 6",
+    // Mid-card right edge
+    dot: [47, 52],
+    label: [55, 55],
+    text: "Lv. 5 · Fire",
     align: "start",
     origin: "left",
   },
   {
     id: "stat",
-    dot: [29, 72],
-    label: [21, 93],
-    text: "Inline Stat Bar · HP",
+    // Bottom stat bar
+    dot: [36, 72],
+    label: [30, 92],
+    text: "Stat Bar · HP · Moves",
     align: "mid",
     origin: "top",
   },
@@ -45,11 +48,12 @@ function labelWrapTransform(align: "start" | "end" | "mid") {
 }
 
 // Corner bracket positions as percentages of the overlay viewport.
-// Card sits on the left ~40% of the screen, vertically centered.
-// Push the reticle in from both edges so it frames just the card.
-const RET = { x1: 14, y1: 16, x2: 40, y2: 84 }
-// Length of each bracket arm in px (constant, not %)
-const ARM = 24
+// Card anatomyX = -vw*0.2 puts the card center at ~32% from left on a
+// wide screen. These values frame the card with equal breathing room.
+// x1/x2 shifted right and spread wider than before.
+const RET = { x1: 20, y1: 14, x2: 50, y2: 86 }
+// Arm length in px — equal on all four sides, so corners look uniform.
+const ARM = 26
 
 /**
  * Dragon-Ball "scouter" HUD pointing at the card (left side in the anatomy
