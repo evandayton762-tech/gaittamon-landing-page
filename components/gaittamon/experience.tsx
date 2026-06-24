@@ -77,6 +77,9 @@ export function Experience() {
   const heroOpacity = clamp(1 - progress / 0.1)
   const fusion = anchor(progress, 0.14, 0.22, 0.3, 0.4)
   const anatomy = anchor(progress, 0.44, 0.54, 0.66, 0.78)
+  // Meta fades in as the card zooms past + fades out, then holds until the
+  // footer content scrolls up over it.
+  const meta = anchor(progress, 0.82, 0.9, 0.99, 1)
 
   // Scouter sequence driver (one-way reveal completed during the anatomy hold).
   const anatomyAppear = clamp((progress - 0.54) / 0.12)
@@ -195,8 +198,10 @@ export function Experience() {
         </div>
       </div>
 
-      {/* Scroll spacer drives the progress timeline for the fixed scene. */}
-      <div aria-hidden="true" style={{ height: "580vh" }} />
+      {/* Scroll spacer drives the progress timeline for the fixed scene.
+          Timeline completes at TIMELINE_SCREENS; the remainder is a quiet
+          buffer before the footer content scrolls up. */}
+      <div aria-hidden="true" style={{ height: `${SPACER_VH}vh` }} />
 
       {/* Gameplay + Footer scroll in over the dark scene at the end. */}
       <GameplayFooter />
@@ -206,7 +211,7 @@ export function Experience() {
 
 function GameplayFooter() {
   return (
-    <section className="relative z-30 w-full">
+    <section className="relative z-30 w-full bg-background">
       <div className="mx-auto max-w-6xl px-6 py-24">
         <div className="mb-12 text-center">
           <p className="mb-3 font-mono text-xs uppercase tracking-[0.4em] text-cyan-glow/80">

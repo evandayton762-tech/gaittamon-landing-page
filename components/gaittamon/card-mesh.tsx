@@ -175,18 +175,19 @@ export function CardMesh({
     group.current.position.x = damp(group.current.position.x, x, 5, delta)
     group.current.position.y = damp(group.current.position.y, y, 5, delta)
 
-    // --- Scale: shrink aside, small for anatomy, grow (capped) for zoom. ---
+    // --- Scale: shrink aside, small for anatomy, modest grow for zoom. ---
     let scl = lerp(baseScale, baseScale * 0.78, sTurn)
     scl = lerp(scl, baseScale * 0.82, sCenter)
-    scl = lerp(scl, baseScale * 2.4, sZoom)
+    scl = lerp(scl, baseScale * 1.7, sZoom)
     const s = damp(group.current.scale.x, scl, 7, delta)
     group.current.scale.setScalar(s)
 
-    // --- Zoom-past: push toward camera and fade out BEFORE it gets pixelated.
-    const z = lerp(0, 4.5, sZoom)
+    // --- Zoom-past: push toward camera while fading out EARLY, so the card is
+    // already invisible before it grows large enough to look pixelated. ---
+    const z = lerp(0, 3.2, sZoom)
     group.current.position.z = damp(group.current.position.z, z, 7, delta)
 
-    const targetOpacity = 1 - stage(p, 0.72, 0.88)
+    const targetOpacity = 1 - stage(p, 0.7, 0.8)
     for (const m of [frontMat.current, backMat.current, bodyMat.current]) {
       if (m) m.opacity = damp(m.opacity, targetOpacity, 8, delta)
     }
