@@ -2,62 +2,106 @@
 
 import { useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
-import { motion } from "framer-motion"
-import { useScrollProgress } from "@/hooks/use-scroll-progress"
 import { ScouterUi } from "./scouter-ui"
 import { CtaButton } from "./cta-button"
+
+// Number of viewport-heights of scroll the card timeline plays across.
+const TIMELINE_SCREENS = 4
+// Total spacer height (a little taller than the timeline = a quiet buffer
+// before the footer content scrolls in).
+const SPACER_VH = 500
 
 const Scene = dynamic(() => import("./scene").then((m) => m.Scene), {
   ssr: false,
 })
 
-// Smoothstep helper to fade overlay sections in/out around a center point.
-function band(p: number, start: number, peak: number, end: number) {
-  if (p <= start || p >= end) return 0
-  if (p < peak) return (p - start) / (peak - start)
-  return 1 - (p - peak) / (end - peak)
+const clamp = (v: number) => Math.min(1, Math.max(0, v))
+const easeInOut = (t: number) =>
+  t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+
+/**
+ * Anchored hold-band. The overlay fades + slides in over [inStart,inEnd],
+ * HOLDS perfectly aligned until outStart, then fades + slides out by outEnd.
+ * Returns the opacity and a vertical offset (px) for the slide.
+ */
+function anchor(
+  p: number,
+  inStart: number,
+  inEnd: number,
+  outStart: number,
+  outEnd: number,
+): { opacity: number; ty: number } {
+  if (p <= inStart) return { opacity: 0, ty: 26 }
+  if (p < inEnd) {
+    const t = easeInOut((p - inStart) / (inEnd - inStart))
+    return { opacity: t, ty: 26 * (1 - t) }
+  }
+  if (p <= outStart) return { opacity: 1, ty: 0 }
+  if (p < outEnd) {
+    const t = easeInOut((p - outStart) / (outEnd - outStart))
+    return { opacity: 1 - t, ty: -26 * t }
+  }
+  return { opacity: 0, ty: -26 }
 }
 
-// Seamless, background-free panels: just the accent line + a soft text shadow
-// so copy stays legible over the live 3D scene.
-const panel =
-  "max-w-md pl-6 [text-shadow:0_2px_18px_rgba(0,0,0,0.9)]"
-
 export function Experience() {
-  const progress = useScrollProgress()
+  // `progress` (0..1) tracks scroll across the timeline region ONLY, in pixels,
+  // so the card animation is independent of the footer content height below.
+  const [progress, setProgress] = useState(0)
   const progressRef = useRef(0)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    progressRef.current = progress
-  }, [progress])
-
-  useEffect(() => {
+    let raf = 0
+    const update = () => {
+      const denom = TIMELINE_SCREENS * window.innerHeight || 1
+      const next = clamp(window.scrollY / denom)
+      progressRef.current = next
+      setProgress(next)
+    }
+    const onScroll = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(update)
+    }
+    update()
     setReady(true)
+    window.addEventListener("scroll", onScroll, { passive: true })
+    window.addEventListener("resize", onScroll)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener("scroll", onScroll)
+      window.removeEventListener("resize", onScroll)
+    }
   }, [])
 
-  const heroOpacity = Math.max(0, 1 - progress / 0.12)
-  const fusionOpacity = band(progress, 0.16, 0.27, 0.4)
-  const anatomyOpacity = band(progress, 0.42, 0.54, 0.66)
-  // One-way reveal driver for the scouter sequence (dots -> lines -> labels).
-  const anatomyAppear = Math.min(1, Math.max(0, (progress - 0.44) / 0.16))
-  const metaOpacity = band(progress, 0.68, 0.8, 0.92)
+  const heroOpacity = clamp(1 - progress / 0.1)
+  const fusion = anchor(progress, 0.14, 0.22, 0.3, 0.4)
+  const anatomy = anchor(progress, 0.44, 0.54, 0.66, 0.78)
+
+  // Scouter sequence driver (one-way reveal completed during the anatomy hold).
+  const anatomyAppear = clamp((progress - 0.54) / 0.12)
+
+  const headingClass =
+    "text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl [text-shadow:0_2px_22px_rgba(0,0,0,0.9)]"
+  const bodyClass =
+    "mt-5 text-pretty leading-relaxed text-foreground/75 [text-shadow:0_2px_18px_rgba(0,0,0,0.9)]"
 
   return (
     <div className="relative">
-      {/* Fixed 3D layer */}
+      {/* Fixed 3D layer (receives pointer events for card tilt) */}
       {ready && <Scene progressRef={progressRef} />}
 
-      {/* Vignette / atmosphere on top of the canvas */}
+      {/* Vignette / atmosphere */}
       <div className="pointer-events-none fixed inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_45%,#050505_100%)]" />
 
       {/* Scouter HUD */}
-      <ScouterUi opacity={anatomyOpacity} appear={anatomyAppear} />
+      <ScouterUi opacity={anatomy.opacity} appear={anatomyAppear} />
 
-      {/* ===== Stage 1: Hero ===== */}
-      <section className="relative z-30 flex h-screen w-full items-center justify-center px-6">
-        <motion.div
-          className="flex flex-col items-center text-center"
+      {/* ===== Fixed, scroll-anchored text overlays ===== */}
+      <div className="pointer-events-none fixed inset-0 z-30">
+        {/* Hero */}
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center"
           style={{ opacity: heroOpacity }}
         >
           <p className="mb-5 font-mono text-xs uppercase tracking-[0.5em] text-cyan-glow/80">
@@ -69,94 +113,92 @@ export function Experience() {
           <p className="mt-6 max-w-xl text-pretty text-lg text-foreground/70 sm:text-xl">
             Fuse the Weak. Forge the Unstoppable.
           </p>
-          <div className="mt-10">
+          <div className="pointer-events-auto mt-10">
             <CtaButton>Play Free Now</CtaButton>
           </div>
-        </motion.div>
 
-        {/* Scroll indicator */}
-        <motion.div
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 text-center"
-          style={{ opacity: heroOpacity }}
-        >
-          <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.4em] text-cyan-glow/70">
-            Scroll to Fuse
-          </p>
-          <motion.div
-            className="mx-auto flex h-9 w-5 items-start justify-center rounded-full border border-cyan-glow/40 p-1"
-            animate={{ opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 1.8, repeat: Infinity }}
-          >
-            <motion.span
-              className="h-2 w-1 rounded-full bg-cyan-glow"
-              animate={{ y: [0, 10, 0] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </motion.div>
-        </motion.div>
-      </section>
-
-      {/* ===== Stage 2: Fusion (text left, card moves right) ===== */}
-      <section className="relative z-30 flex h-screen w-full items-center justify-start px-6 sm:px-12 lg:px-20">
-        <motion.div
-          className={`border-l-2 border-l-purple-glow ${panel}`}
-          style={{ opacity: fusionOpacity }}
-        >
-          <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-purple-glow">
-            01 — Fusion
-          </p>
-          <h2 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Infinite Alchemy.
-          </h2>
-          <p className="mt-5 text-pretty leading-relaxed text-foreground/70">
-            Combine Tier 1, 2, and 3 creatures to unlock devastating Tier 4, 5,
-            and 6 titans. Every match is a step toward your next ultimate fusion.
-          </p>
-        </motion.div>
-      </section>
-
-      {/* ===== Stage 3: Anatomy (text left, card centered for scouter) ===== */}
-      <section className="relative z-30 flex h-screen w-full items-center justify-start px-6 sm:px-12 lg:px-20">
-        <motion.div
-          className={`max-w-xs border-l-2 border-l-purple-glow ${panel}`}
-          style={{ opacity: anatomyOpacity }}
-        >
-          <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-purple-glow">
-            02 — Anatomy
-          </p>
-          <h2 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Master the Anatomy.
-          </h2>
-          <p className="mt-5 text-pretty leading-relaxed text-foreground/70">
-            Every element matters. From the Exalted status to the inline stat
-            bars, mastery of Gaittamon requires perfect synergy.
-          </p>
-        </motion.div>
-      </section>
-
-      {/* ===== Stage 4: Meta (center) ===== */}
-      <section className="relative z-30 flex h-screen w-full items-center justify-center px-6">
-        <motion.div
-          className="max-w-lg text-center [text-shadow:0_2px_18px_rgba(0,0,0,0.9)]"
-          style={{ opacity: metaOpacity }}
-        >
-          <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-cyan-glow">
-            03 — Ranked
-          </p>
-          <h2 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            The Meta Never Sleeps.
-          </h2>
-          <p className="mx-auto mt-5 max-w-md text-pretty leading-relaxed text-foreground/70">
-            Take your fusions to the Ranked Ladder. Test your deck against
-            endless combinations.
-          </p>
-          <div className="mt-9">
-            <CtaButton variant="gold">Enter the Portal</CtaButton>
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 text-center">
+            <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.4em] text-cyan-glow/70">
+              Scroll to Fuse
+            </p>
+            <div className="mx-auto flex h-9 w-5 items-start justify-center rounded-full border border-cyan-glow/40 p-1">
+              <span
+                className="h-2 w-1 rounded-full bg-cyan-glow"
+                style={{ animation: "scout-pulse 1.8s ease-in-out infinite" }}
+              />
+            </div>
           </div>
-        </motion.div>
-      </section>
+        </div>
 
-      {/* ===== Stage 5: Gameplay + Footer (normal scroll, opaque) ===== */}
+        {/* 01 Fusion — text LEFT, card moves right */}
+        <div className="absolute inset-0 flex items-center justify-start px-8 sm:px-16 lg:px-28">
+          <div
+            className="max-w-md border-l-2 border-l-purple-glow pl-6"
+            style={{
+              opacity: fusion.opacity,
+              transform: `translateY(${fusion.ty}px)`,
+            }}
+          >
+            <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-purple-glow">
+              01 — Fusion
+            </p>
+            <h2 className={headingClass}>Infinite Alchemy.</h2>
+            <p className={bodyClass}>
+              Combine Tier 1, 2, and 3 creatures to unlock devastating Tier 4,
+              5, and 6 titans. Every match is a step toward your next ultimate
+              fusion.
+            </p>
+          </div>
+        </div>
+
+        {/* 02 Anatomy — text RIGHT, card on the left with the scouter */}
+        <div className="absolute inset-0 flex items-center justify-end px-8 sm:px-16 lg:px-28">
+          <div
+            className="max-w-xs border-r-2 border-r-cyan-glow pr-6 text-right"
+            style={{
+              opacity: anatomy.opacity,
+              transform: `translateY(${anatomy.ty}px)`,
+            }}
+          >
+            <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-cyan-glow">
+              02 — Anatomy
+            </p>
+            <h2 className={headingClass}>Master the Anatomy.</h2>
+            <p className={bodyClass}>
+              Every element matters. From the Exalted status to the inline stat
+              bars, mastery of Gaittamon requires perfect synergy.
+            </p>
+          </div>
+        </div>
+
+        {/* 03 Meta — center */}
+        <div className="absolute inset-0 flex items-center justify-center px-6">
+          <div
+            className="max-w-lg text-center"
+            style={{
+              opacity: meta.opacity,
+              transform: `translateY(${meta.ty}px)`,
+            }}
+          >
+            <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-cyan-glow">
+              03 — Ranked
+            </p>
+            <h2 className={headingClass}>The Meta Never Sleeps.</h2>
+            <p className={`mx-auto max-w-md ${bodyClass}`}>
+              Take your fusions to the Ranked Ladder. Test your deck against
+              endless combinations.
+            </p>
+            <div className="pointer-events-auto mt-9">
+              <CtaButton variant="gold">Enter the Portal</CtaButton>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Scroll spacer drives the progress timeline for the fixed scene. */}
+      <div aria-hidden="true" style={{ height: "580vh" }} />
+
+      {/* Gameplay + Footer scroll in over the dark scene at the end. */}
       <GameplayFooter />
     </div>
   )
@@ -175,7 +217,6 @@ function GameplayFooter() {
           </h2>
         </div>
 
-        {/* Gameplay video placeholder */}
         <div className="relative aspect-video w-full overflow-hidden rounded-3xl border border-white/10 shadow-glow-purple">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0e0826] via-[#04141a] to-[#050505]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,color-mix(in_oklch,var(--cyan-glow)_22%,transparent),transparent_55%)]" />

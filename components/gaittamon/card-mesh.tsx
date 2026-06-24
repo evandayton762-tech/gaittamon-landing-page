@@ -1,45 +1,48 @@
 "use client"
 
-import { useMemo, useRef, type MutableRefObject } from "react"
-import { useFrame, useLoader } from "@react-three/fiber"
-import { RoundedBox } from "@react-three/drei"
+import { useEffect, useMemo, useRef, type MutableRefObject } from "react"
+import { useFrame, useLoader, type ThreeEvent } from "@react-three/fiber"
 import * as THREE from "three"
 
 const damp = THREE.MathUtils.damp
 const lerp = THREE.MathUtils.lerp
 const clamp = THREE.MathUtils.clamp
+const PI = Math.PI
 
 // Maps the global 0..1 scroll progress into per-stage local progress.
 function stage(p: number, start: number, end: number) {
   return Math.min(1, Math.max(0, (p - start) / (end - start)))
 }
 
-// Smooth ease in-out
 function easeInOut(t: number) {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
 }
 
 const CARD_W = 2.5
 const CARD_H = 3.5
+const DEPTH = 0.02 // thin TCG-style card body
 
-// Builds a rounded-rectangle plane with UVs normalized to 0..1 so a texture
-// fits the whole face. This gives the card soft rounded corners.
+// A rounded-rectangle shape reused for both the thin body and the faces.
+function roundedRectShape(w: number, h: number, r: number) {
+  const shape = new THREE.Shape()
+  const x = -w / 2
+  const y = -h / 2
+  shape.moveTo(x + r, y)
+  shape.lineTo(x + w - r, y)
+  shape.quadraticCurveTo(x + w, y, x + w, y + r)
+  shape.lineTo(x + w, y + h - r)
+  shape.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+  shape.lineTo(x + r, y + h)
+  shape.quadraticCurveTo(x, y + h, x, y + h - r)
+  shape.lineTo(x, y + r)
+  shape.quadraticCurveTo(x, y, x + r, y)
+  return shape
+}
+
+// Flat rounded plane with normalized UVs so a texture fills the whole face.
 function useRoundedPlane(w: number, h: number, r: number) {
   return useMemo(() => {
-    const shape = new THREE.Shape()
-    const x = -w / 2
-    const y = -h / 2
-    shape.moveTo(x + r, y)
-    shape.lineTo(x + w - r, y)
-    shape.quadraticCurveTo(x + w, y, x + w, y + r)
-    shape.lineTo(x + w, y + h - r)
-    shape.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
-    shape.lineTo(x + r, y + h)
-    shape.quadraticCurveTo(x, y + h, x, y + h - r)
-    shape.lineTo(x, y + r)
-    shape.quadraticCurveTo(x, y, x + r, y)
-
-    const geo = new THREE.ShapeGeometry(shape, 24)
+    const geo = new THREE.ShapeGeometry(roundedRectShape(w, h, r), 24)
     const pos = geo.attributes.position
     const uv: number[] = []
     for (let i = 0; i < pos.count; i++) {
@@ -48,6 +51,23 @@ function useRoundedPlane(w: number, h: number, r: number) {
     geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2))
     return geo
   }, [w, h, r])
+}
+
+// Thin extruded rounded body — gives real rounded corners with a slim edge.
+function useCardBody(w: number, h: number, r: number, depth: number) {
+  return useMemo(() => {
+    const geo = new THREE.ExtrudeGeometry(roundedRectShape(w, h, r), {
+      depth,
+      bevelEnabled: true,
+      bevelThickness: 0.006,
+      bevelSize: 0.006,
+      bevelSegments: 1,
+      steps: 1,
+      curveSegments: 24,
+    })
+    geo.center()
+    return geo
+  }, [w, h, r, depth])
 }
 
 export function CardMesh({
@@ -60,6 +80,11 @@ export function CardMesh({
   const backMat = useRef<THREE.MeshStandardMaterial>(null)
   const bodyMat = useRef<THREE.MeshStandardMaterial>(null)
 
+  // Pointer interaction state.
+  const hovered = useRef(false)
+  const pressed = useRef(false)
+  const pointer = useRef({ x: 0, y: 0 })
+
   const [front, back] = useLoader(THREE.TextureLoader, [
     "/card-front.png",
     "/cardback.png",
@@ -69,7 +94,41 @@ export function CardMesh({
   front.anisotropy = 8
   back.anisotropy = 8
 
-  const faceGeo = useRoundedPlane(CARD_W - 0.06, CARD_H - 0.06, 0.2)
+  const faceGeo = useRoundedPlane(CARD_W - 0.08, CARD_H - 0.08, 0.18)
+  const bodyGeo = useCardBody(CARD_W, CARD_H, 0.2, DEPTH)
+  const faceZ = DEPTH / 2 + 0.006 + 0.001
+
+  useEffect(() => {
+    const up = () => {
+      pressed.current = false
+    }
+    window.addEventListener("pointerup", up)
+    return () => window.removeEventListener("pointerup", up)
+  }, [])
+
+  const onMove = (e: ThreeEvent<PointerEvent>) => {
+    if (e.uv) {
+      pointer.current.x = (e.uv.x - 0.5) * 2
+      pointer.current.y = (e.uv.y - 0.5) * 2
+    }
+  }
+  const onOver = () => {
+    hovered.current = true
+  }
+  const onOut = () => {
+    hovered.current = false
+    pressed.current = false
+  }
+  const onDown = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation()
+    pressed.current = true
+  }
+  const handlers = {
+    onPointerMove: onMove,
+    onPointerOver: onOver,
+    onPointerOut: onOut,
+    onPointerDown: onDown,
+  }
 
   useFrame((state, delta) => {
     if (!group.current) return
@@ -77,55 +136,57 @@ export function CardMesh({
     const t = state.clock.elapsedTime
     const vw = state.viewport.width
 
-    // Keep the card fully on-screen on any aspect ratio.
-    const fit = clamp(vw / 3.4, 0.5, 1)
-    const baseScale = 0.84 * fit
+    const fit = clamp(vw / 3.6, 0.5, 1)
+    const baseScale = 0.72 * fit
 
-    // Stage windows
-    const sTurn = easeInOut(stage(p, 0.14, 0.36)) // hero -> fusion (move right)
-    const sCenter = easeInOut(stage(p, 0.42, 0.6)) // fusion -> anatomy (to center)
-    const sZoom = easeInOut(stage(p, 0.7, 0.9)) // anatomy -> meta (zoom past)
+    // Stage windows (driven by the spacer-relative progress in experience.tsx)
+    const sTurn = easeInOut(stage(p, 0.12, 0.34)) // hero -> fusion (right)
+    const sCenter = easeInOut(stage(p, 0.4, 0.58)) // fusion -> anatomy (left)
+    const sZoom = easeInOut(stage(p, 0.7, 0.9)) // anatomy -> zoom past
 
-    // --- Rotation: back (PI) -> turns to front (2PI) -> settles, with a
-    // leftward spin flourish on the way to center.
-    let rotY = lerp(Math.PI, Math.PI * 2, sTurn)
-    rotY = lerp(rotY, Math.PI * 2, sCenter)
-    rotY -= Math.sin(sCenter * Math.PI) * 0.8 // spin-left, then settle to front
-    rotY += Math.sin(t * 0.5) * 0.04 * (1 - sTurn) * (1 - sZoom) // idle sway
+    // --- Rotation: back -> half flip to front (moving right) -> a full
+    // leftward revolution that lands on the front again (moving left). ---
+    let rotY = lerp(PI, PI * 2, sTurn)
+    rotY = lerp(rotY, 0, sCenter) // 2PI -> 0 = one full left turn, ends on front
+    rotY += Math.sin(t * 0.5) * 0.04 * (1 - sTurn) // gentle idle sway on hero
 
-    const rotX =
-      -0.02 + sCenter * 0.04 + Math.sin(t * 0.4) * 0.02 * (1 - sZoom)
-    const rotZ = Math.sin(sCenter * Math.PI) * 0.05
+    let rotX = -0.02 + Math.sin(t * 0.4) * 0.02 * (1 - sZoom)
+    let rotZ = Math.sin(sCenter * PI) * 0.04
+
+    // --- Pointer tilt: subtle on hover, stronger while pressed, snaps back. ---
+    const strength = pressed.current ? 0.4 : hovered.current ? 0.16 : 0
+    rotY += pointer.current.x * strength
+    rotX += -pointer.current.y * strength
 
     group.current.rotation.y = damp(group.current.rotation.y, rotY, 6, delta)
     group.current.rotation.x = damp(group.current.rotation.x, rotX, 6, delta)
     group.current.rotation.z = damp(group.current.rotation.z, rotZ, 6, delta)
 
-    // --- Position: hero center -> right side -> back to center ---
-    const rightX = vw * 0.24
+    // --- Position: center -> right -> left -> back to center for zoom. ---
+    const rightX = vw * 0.26
+    const leftX = -vw * 0.2
     let x = lerp(0, rightX, sTurn)
-    x = lerp(x, 0, sCenter)
+    x = lerp(x, leftX, sCenter)
     x *= 1 - sZoom
 
-    const floatY = Math.sin(t * 0.9) * 0.07 * (1 - sZoom)
-    const y = floatY + lerp(0, 0.04, sCenter)
+    const floatY = Math.sin(t * 0.9) * 0.05 * (1 - sZoom)
+    const y = floatY
 
     group.current.position.x = damp(group.current.position.x, x, 5, delta)
     group.current.position.y = damp(group.current.position.y, y, 5, delta)
 
-    // --- Scale: smaller as it moves aside, small + centered for anatomy,
-    // then large for the zoom-past finale. ---
-    let scl = lerp(baseScale, baseScale * 0.74, sTurn)
+    // --- Scale: shrink aside, small for anatomy, grow (capped) for zoom. ---
+    let scl = lerp(baseScale, baseScale * 0.78, sTurn)
     scl = lerp(scl, baseScale * 0.82, sCenter)
-    scl = lerp(scl, baseScale * 4.4, sZoom)
+    scl = lerp(scl, baseScale * 2.4, sZoom)
     const s = damp(group.current.scale.x, scl, 7, delta)
     group.current.scale.setScalar(s)
 
-    // --- Zoom-past: push toward the camera and fade out. ---
-    const z = lerp(0, 6.2, sZoom)
+    // --- Zoom-past: push toward camera and fade out BEFORE it gets pixelated.
+    const z = lerp(0, 4.5, sZoom)
     group.current.position.z = damp(group.current.position.z, z, 7, delta)
 
-    const targetOpacity = 1 - stage(p, 0.8, 0.92)
+    const targetOpacity = 1 - stage(p, 0.72, 0.88)
     for (const m of [frontMat.current, backMat.current, bodyMat.current]) {
       if (m) m.opacity = damp(m.opacity, targetOpacity, 8, delta)
     }
@@ -133,21 +194,21 @@ export function CardMesh({
 
   return (
     <group ref={group}>
-      {/* Dark rounded body that forms the border / edge of the card */}
-      <RoundedBox args={[CARD_W, CARD_H, 0.07]} radius={0.22} smoothness={5}>
+      {/* Thin rounded body forms the card edge / border */}
+      <mesh geometry={bodyGeo} {...handlers}>
         <meshStandardMaterial
           ref={bodyMat}
           color="#0b0918"
           metalness={0.7}
           roughness={0.35}
           emissive="#241046"
-          emissiveIntensity={0.25}
+          emissiveIntensity={0.22}
           transparent
         />
-      </RoundedBox>
+      </mesh>
 
       {/* Front face (Mystitoad) */}
-      <mesh geometry={faceGeo} position={[0, 0, 0.038]}>
+      <mesh geometry={faceGeo} position={[0, 0, faceZ]} {...handlers}>
         <meshStandardMaterial
           ref={frontMat}
           map={front}
@@ -159,8 +220,13 @@ export function CardMesh({
         />
       </mesh>
 
-      {/* Back face (ornate vortex), faces the opposite direction */}
-      <mesh geometry={faceGeo} position={[0, 0, -0.038]} rotation={[0, Math.PI, 0]}>
+      {/* Back face (vortex), faces the opposite direction */}
+      <mesh
+        geometry={faceGeo}
+        position={[0, 0, -faceZ]}
+        rotation={[0, PI, 0]}
+        {...handlers}
+      >
         <meshStandardMaterial
           ref={backMat}
           map={back}

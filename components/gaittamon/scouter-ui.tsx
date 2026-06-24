@@ -2,49 +2,59 @@
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v))
 
-type Anchor = "start" | "end" | "mid"
+type Origin = "left" | "right" | "top"
 
 const POINTS: {
   id: string
   dot: [number, number]
   label: [number, number]
   text: string
-  anchor: Anchor
+  align: "start" | "end" | "mid"
+  origin: Origin
 }[] = [
   {
     id: "name",
-    dot: [50, 27],
-    label: [27, 15],
+    dot: [30, 36],
+    label: [47, 27],
     text: "Mystitoad · Exalted",
-    anchor: "end",
+    align: "start",
+    origin: "left",
   },
   {
     id: "tier",
-    dot: [60, 50],
-    label: [82, 47],
+    dot: [38, 55],
+    label: [49, 58],
     text: "Lv. 20 · Tier 6",
-    anchor: "start",
+    align: "start",
+    origin: "left",
   },
   {
     id: "stat",
-    dot: [50, 72],
-    label: [50, 87],
-    text: "Inline Stat Bar · HP · Abilities",
-    anchor: "mid",
+    dot: [30, 70],
+    label: [30, 84],
+    text: "Inline Stat Bar · HP",
+    align: "mid",
+    origin: "top",
   },
 ]
 
-function labelTransform(anchor: Anchor) {
-  if (anchor === "end") return "translate(-100%, -50%)"
-  if (anchor === "start") return "translate(0, -50%)"
+function labelWrapTransform(align: "start" | "end" | "mid") {
+  if (align === "end") return "translate(-100%, -50%)"
+  if (align === "start") return "translate(0, -50%)"
   return "translate(-50%, 0)"
 }
 
+// Card-bounding reticle corners (tight around the left-positioned card).
+const RET = { x1: 20, y1: 28, x2: 41, y2: 78 }
+
 /**
- * Dragon-Ball "scouter" HUD pointing at the centered card.
- * Sequenced by `appear` (0..1): dots fade in first, then lines draw outward
- * from each dot toward its label, then the labels fade in. `opacity` controls
- * the whole overlay (fade in + out with the section).
+ * Dragon-Ball "scouter" HUD pointing at the card (left side in the anatomy
+ * stage). Sequenced by `appear` (0..1):
+ *   1. dots + corner reticle fade in
+ *   2. connector lines draw OUTWARD from each dot to its label
+ *   3. label boxes draw out (scale from the edge nearest the card)
+ *   4. label text fades in
+ * `opacity` fades the whole overlay in/out with the section.
  */
 export function ScouterUi({
   opacity,
@@ -53,9 +63,10 @@ export function ScouterUi({
   opacity: number
   appear: number
 }) {
-  const dotsO = clamp(appear / 0.3)
-  const draw = clamp((appear - 0.25) / 0.5)
-  const labelO = clamp((appear - 0.62) / 0.32)
+  const dotsO = clamp(appear / 0.2)
+  const draw = clamp((appear - 0.2) / 0.35) // line draw
+  const boxDraw = clamp((appear - 0.55) / 0.25) // box outline draws out
+  const textO = clamp((appear - 0.8) / 0.2) // text fades in last
 
   return (
     <div
@@ -63,24 +74,23 @@ export function ScouterUi({
       className="pointer-events-none fixed inset-0 z-20"
       style={{ opacity }}
     >
-      {/* Connector lines (draw outward from each dot) */}
+      {/* Connector lines + corner reticle */}
       <svg
         className="absolute inset-0 h-full w-full text-cyan-glow"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         fill="none"
       >
-        {/* corner reticle, fades in with the dots */}
         <g
           stroke="currentColor"
           strokeWidth="1"
           vectorEffect="non-scaling-stroke"
           style={{ opacity: dotsO * 0.5 }}
         >
-          <path d="M18 30 V18 H30" />
-          <path d="M82 30 V18 H70" />
-          <path d="M18 70 V82 H30" />
-          <path d="M82 70 V82 H70" />
+          <path d={`M${RET.x1} ${RET.y1 + 7} V${RET.y1} H${RET.x1 + 6}`} />
+          <path d={`M${RET.x2} ${RET.y1 + 7} V${RET.y1} H${RET.x2 - 6}`} />
+          <path d={`M${RET.x1} ${RET.y2 - 7} V${RET.y2} H${RET.x1 + 6}`} />
+          <path d={`M${RET.x2} ${RET.y2 - 7} V${RET.y2} H${RET.x2 - 6}`} />
         </g>
 
         {POINTS.map((p) => (
@@ -93,7 +103,7 @@ export function ScouterUi({
             stroke="currentColor"
             strokeWidth="1.25"
             vectorEffect="non-scaling-stroke"
-            style={{ opacity: 0.7 }}
+            style={{ opacity: 0.75 }}
           />
         ))}
       </svg>
@@ -115,23 +125,42 @@ export function ScouterUi({
         </div>
       ))}
 
-      {/* Labels fade in last */}
-      {POINTS.map((p) => (
-        <div
-          key={p.id}
-          className="absolute"
-          style={{
-            left: `${p.label[0]}%`,
-            top: `${p.label[1]}%`,
-            transform: labelTransform(p.anchor),
-            opacity: labelO,
-          }}
-        >
-          <span className="whitespace-nowrap rounded-sm border border-cyan-glow/50 bg-[#04141a]/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-glow shadow-glow-cyan backdrop-blur-sm sm:text-xs">
-            {p.text}
-          </span>
-        </div>
-      ))}
+      {/* Label boxes: frame draws out from the edge nearest the card, text fades in */}
+      {POINTS.map((p) => {
+        const scaleStyle =
+          p.origin === "top"
+            ? { transform: `scaleY(${boxDraw})`, transformOrigin: "top" }
+            : {
+                transform: `scaleX(${boxDraw})`,
+                transformOrigin: p.origin === "right" ? "right" : "left",
+              }
+        return (
+          <div
+            key={p.id}
+            className="absolute"
+            style={{
+              left: `${p.label[0]}%`,
+              top: `${p.label[1]}%`,
+              transform: labelWrapTransform(p.align),
+            }}
+          >
+            <div className="relative">
+              {/* drawing frame */}
+              <div
+                className="absolute inset-0 rounded-sm border border-cyan-glow/60 bg-[#04141a]/75 shadow-glow-cyan"
+                style={{ opacity: boxDraw > 0.001 ? 1 : 0, ...scaleStyle }}
+              />
+              {/* text defines the box size, fades in last */}
+              <span
+                className="relative block whitespace-nowrap px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-glow sm:text-xs"
+                style={{ opacity: textO }}
+              >
+                {p.text}
+              </span>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
