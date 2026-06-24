@@ -5,6 +5,7 @@ import { Canvas, useFrame } from "@react-three/fiber"
 import { Environment } from "@react-three/drei"
 import * as THREE from "three"
 import { CardMesh } from "./card-mesh"
+import { Title3D } from "./title-3d"
 
 // A moving rim light that sweeps to create the "dynamic reflection" during the
 // anatomy stage.
@@ -44,6 +45,7 @@ export function Scene({
         <Suspense fallback={null}>
           <SweepLight progressRef={progressRef} />
           <CardMesh progressRef={progressRef} />
+          <Title3D progressRef={progressRef} />
           <Environment preset="night" />
         </Suspense>
       </Canvas>

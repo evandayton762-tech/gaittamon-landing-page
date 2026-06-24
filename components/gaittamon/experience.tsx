@@ -134,9 +134,12 @@ export function Experience() {
           <p className="mb-5 font-mono text-xs uppercase tracking-[0.5em] text-cyan-glow/80">
             The Fusion Trading Card Game
           </p>
-          <h1 className="text-balance bg-gradient-to-b from-white via-white to-white/50 bg-clip-text font-sans text-6xl font-black tracking-tight text-transparent text-glow-cyan sm:text-8xl md:text-9xl">
-            GAITTAMON
-          </h1>
+          {/* The wordmark is rendered as 3D geometry inside the canvas
+              (components/gaittamon/title-3d.tsx). This spacer reserves its
+              space so the surrounding copy frames it; the heading text is kept
+              for screen readers + SEO. */}
+          <h1 className="sr-only">GAITTAMON</h1>
+          <div aria-hidden="true" className="h-28 sm:h-36 md:h-44" />
           <p className="mt-6 max-w-xl text-pretty text-lg text-foreground/70 sm:text-xl">
             Fuse the Weak. Forge the Unstoppable.
           </p>
