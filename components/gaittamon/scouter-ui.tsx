@@ -44,9 +44,12 @@ function labelWrapTransform(align: "start" | "end" | "mid") {
   return "translate(-50%, 0)"
 }
 
-// Card-bounding reticle corners — expanded to frame OUTSIDE the
-// left-positioned card with breathing room on all sides.
-const RET = { x1: 4, y1: 7, x2: 38, y2: 86 }
+// Corner bracket positions as percentages of the overlay viewport.
+// Card sits on the left ~40% of the screen, vertically centered.
+// Push the reticle in from both edges so it frames just the card.
+const RET = { x1: 14, y1: 16, x2: 40, y2: 84 }
+// Length of each bracket arm in px (constant, not %)
+const ARM = 24
 
 /**
  * Dragon-Ball "scouter" HUD pointing at the card (left side in the anatomy
@@ -69,50 +72,87 @@ export function ScouterUi({
   const boxDraw = clamp((appear - 0.55) / 0.25) // box outline draws out
   const textO = clamp((appear - 0.8) / 0.2) // text fades in last
 
+  // Each corner bracket is two absolutely-positioned <div> elements sharing a
+  // corner point. Using real divs with border-* utilities gives equal pixel
+  // stroke width on all four sides regardless of viewport aspect ratio.
+  const corners = [
+    // top-left
+    {
+      id: "tl",
+      outer: { left: `${RET.x1}%`, top: `${RET.y1}%` },
+      borderH: "border-l-2 border-t-2",
+      styleH: { width: ARM, height: ARM },
+    },
+    // top-right
+    {
+      id: "tr",
+      outer: { left: `${RET.x2}%`, top: `${RET.y1}%` },
+      borderH: "border-r-2 border-t-2",
+      styleH: { width: ARM, height: ARM, transform: "translateX(-100%)" },
+    },
+    // bottom-left
+    {
+      id: "bl",
+      outer: { left: `${RET.x1}%`, top: `${RET.y2}%` },
+      borderH: "border-l-2 border-b-2",
+      styleH: { width: ARM, height: ARM, transform: "translateY(-100%)" },
+    },
+    // bottom-right
+    {
+      id: "br",
+      outer: { left: `${RET.x2}%`, top: `${RET.y2}%` },
+      borderH: "border-r-2 border-b-2",
+      styleH: {
+        width: ARM,
+        height: ARM,
+        transform: "translate(-100%, -100%)",
+      },
+    },
+  ]
+
   return (
     <div
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 z-20"
       style={{ opacity }}
     >
-      {/* Connector lines + corner reticle */}
+      {/* Corner bracket reticle — div-based so stroke width is always even */}
+      {corners.map((c) => (
+        <div
+          key={c.id}
+          className={`absolute ${c.borderH} border-cyan-glow/60`}
+          style={{ ...c.outer, ...c.styleH, opacity: dotsO }}
+        />
+      ))}
+
+      {/* Connector lines — SVG so we can do the draw animation */}
       <svg
         className="absolute inset-0 h-full w-full text-cyan-glow"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         fill="none"
       >
-        <g
-          stroke="currentColor"
-          strokeWidth="1"
-          vectorEffect="non-scaling-stroke"
-          style={{ opacity: dotsO * 0.5 }}
-        >
-          <path d={`M${RET.x1} ${RET.y1 + 7} V${RET.y1} H${RET.x1 + 6}`} />
-          <path d={`M${RET.x2} ${RET.y1 + 7} V${RET.y1} H${RET.x2 - 6}`} />
-          <path d={`M${RET.x1} ${RET.y2 - 7} V${RET.y2} H${RET.x1 + 6}`} />
-          <path d={`M${RET.x2} ${RET.y2 - 7} V${RET.y2} H${RET.x2 - 6}`} />
-        </g>
-
         {POINTS.map((p) => {
-          // Endpoint grows from the dot toward the label as `draw` goes 0->1,
-          // so the line visibly extends out of the dot (no sliding/shift).
+          // Endpoint grows from dot to label so the line visibly extends outward.
           const ex = p.dot[0] + (p.label[0] - p.dot[0]) * draw
           const ey = p.dot[1] + (p.label[1] - p.dot[1]) * draw
           return (
-            <path
+            <line
               key={p.id}
-              d={`M ${p.dot[0]} ${p.dot[1]} L ${ex} ${ey}`}
+              x1={p.dot[0]}
+              y1={p.dot[1]}
+              x2={ex}
+              y2={ey}
               stroke="currentColor"
-              strokeWidth="1.25"
+              strokeWidth="0.5"
               vectorEffect="non-scaling-stroke"
-              style={{ opacity: draw > 0.001 ? 0.75 : 0 }}
+              strokeOpacity={draw > 0.001 ? 0.7 : 0}
             />
           )
         })}
       </svg>
 
-      {/* Pulsing dots anchored on the card */}
+      {/* Pulsing anchor dots on the card */}
       {POINTS.map((p) => (
         <div
           key={p.id}
@@ -121,7 +161,7 @@ export function ScouterUi({
         >
           <span className="relative flex h-3 w-3 items-center justify-center">
             <span
-              className="absolute inline-flex h-full w-full rounded-full bg-cyan-glow/60"
+              className="absolute inline-flex h-full w-full rounded-full bg-cyan-glow/50"
               style={{ animation: "scout-pulse 1.6s ease-in-out infinite" }}
             />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-glow shadow-glow-cyan" />
@@ -129,7 +169,7 @@ export function ScouterUi({
         </div>
       ))}
 
-      {/* Label boxes: frame draws out from the edge nearest the card, text fades in */}
+      {/* Label boxes: frame draws out, then text fades in */}
       {POINTS.map((p) => {
         const scaleStyle =
           p.origin === "top"
@@ -149,12 +189,13 @@ export function ScouterUi({
             }}
           >
             <div className="relative">
-              {/* drawing frame */}
               <div
-                className="absolute inset-0 rounded-sm border border-cyan-glow/60 bg-[#04141a]/75 shadow-glow-cyan"
-                style={{ opacity: boxDraw > 0.001 ? 1 : 0, ...scaleStyle }}
+                className="absolute inset-0 rounded-sm border border-cyan-glow/60 bg-[#04141a]/80 shadow-glow-cyan"
+                style={{
+                  visibility: boxDraw > 0.001 ? "visible" : "hidden",
+                  ...scaleStyle,
+                }}
               />
-              {/* text defines the box size, fades in last */}
               <span
                 className="relative block whitespace-nowrap px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-glow sm:text-xs"
                 style={{ opacity: textO }}

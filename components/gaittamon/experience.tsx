@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { ScouterUi } from "./scouter-ui"
 import { CtaButton } from "./cta-button"
+import { TopNav } from "./top-nav"
 
 // Number of viewport-heights of scroll the card timeline plays across.
 const TIMELINE_SCREENS = 4
-// Total spacer height. The card has fully faded by ~0.8 of the timeline, so the
-// gameplay/footer content scrolls in right after that with a small breath.
-const SPACER_VH = 430
+// Total spacer height. Card is fully faded by ~0.8 of the timeline (=3.2 screens).
+// Keep the spacer tight so section 3 appears quickly after the fade.
+const SPACER_VH = 360
 
 const Scene = dynamic(() => import("./scene").then((m) => m.Scene), {
   ssr: false,
@@ -115,6 +116,9 @@ export function Experience() {
 
   return (
     <div className="relative">
+      {/* Fixed top navigation */}
+      <TopNav />
+
       {/* Fixed 3D layer (receives pointer events for card tilt) */}
       {ready && <Scene progressRef={progressRef} />}
 
@@ -223,8 +227,27 @@ export function Experience() {
 function GameplayFooter() {
   return (
     <section className="relative z-30 w-full">
-      <div className="mx-auto max-w-6xl px-6 py-24">
-        <div className="mb-12 text-center">
+      {/* 03 Ranked — CTA first so users see "Enter the Portal" before
+          scrolling down to the video, not after. */}
+      <div className="mx-auto max-w-lg px-6 pb-12 pt-24 text-center">
+        <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-cyan-glow">
+          03 — Ranked
+        </p>
+        <h2 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+          The Meta Never Sleeps.
+        </h2>
+        <p className="mx-auto mt-5 max-w-md text-pretty leading-relaxed text-foreground/75">
+          Take your fusions to the Ranked Ladder. Test your deck against endless
+          combinations.
+        </p>
+        <div className="mt-9">
+          <CtaButton variant="gold">Enter the Portal</CtaButton>
+        </div>
+      </div>
+
+      {/* Gameplay video — directly below the CTA so it's immediately visible */}
+      <div className="mx-auto max-w-6xl px-6 pb-24 pt-4">
+        <div className="mb-10 text-center">
           <p className="mb-3 font-mono text-xs uppercase tracking-[0.4em] text-cyan-glow/80">
             Gameplay
           </p>
@@ -247,24 +270,6 @@ function GameplayFooter() {
               </svg>
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* 03 Ranked — final CTA, placed AFTER the gameplay video so it's the
-          last thing users see before being prompted to enter the portal. */}
-      <div className="mx-auto max-w-lg px-6 pb-28 pt-4 text-center">
-        <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-cyan-glow">
-          03 — Ranked
-        </p>
-        <h2 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-          The Meta Never Sleeps.
-        </h2>
-        <p className="mx-auto mt-5 max-w-md text-pretty leading-relaxed text-foreground/75">
-          Take your fusions to the Ranked Ladder. Test your deck against endless
-          combinations.
-        </p>
-        <div className="mt-9">
-          <CtaButton variant="gold">Enter the Portal</CtaButton>
         </div>
       </div>
 

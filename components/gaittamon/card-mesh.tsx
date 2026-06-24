@@ -144,11 +144,16 @@ export function CardMesh({
     const sCenter = easeInOut(stage(p, 0.4, 0.58)) // fusion -> anatomy (left)
     const sZoom = easeInOut(stage(p, 0.7, 0.9)) // anatomy -> zoom past
 
-    // --- Rotation: back -> half flip to front (moving right) -> a full
-    // leftward revolution that lands on the front again (moving left). ---
+    // --- Rotation ---
+    // Hero:    back facing camera (rotY = PI)
+    // Fusion:  flips to front while moving right (PI -> 2*PI)
+    // Anatomy: full left revolution back to front-facing (2*PI -> 3*PI = front again after 1 full turn wait, using 0 as equivalent)
+    // Zoom:    pirouette — one full extra Y spin (0 -> 2*PI) while rising toward camera, ends with back showing (lands on PI)
     let rotY = lerp(PI, PI * 2, sTurn)
-    rotY = lerp(rotY, 0, sCenter) // 2PI -> 0 = one full left turn, ends on front
-    rotY += Math.sin(t * 0.5) * 0.04 * (1 - sTurn) // gentle idle sway on hero
+    rotY = lerp(rotY, 0, sCenter)
+    // Pirouette: 0 -> PI (half turn = back of card) over the zoom stage
+    rotY = lerp(rotY, PI, sZoom)
+    rotY += Math.sin(t * 0.5) * 0.04 * (1 - sTurn)
 
     let rotX = -0.02 + Math.sin(t * 0.4) * 0.02 * (1 - sZoom)
     let rotZ = Math.sin(sCenter * PI) * 0.04
