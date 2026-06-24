@@ -7,9 +7,9 @@ import { CtaButton } from "./cta-button"
 
 // Number of viewport-heights of scroll the card timeline plays across.
 const TIMELINE_SCREENS = 4
-// Total spacer height (a little taller than the timeline = a quiet buffer
-// before the footer content scrolls in).
-const SPACER_VH = 500
+// Total spacer height. The card has fully faded by ~0.8 of the timeline, so the
+// gameplay/footer content scrolls in right after that with a small breath.
+const SPACER_VH = 430
 
 const Scene = dynamic(() => import("./scene").then((m) => m.Scene), {
   ssr: false,
@@ -50,6 +50,33 @@ export function Experience() {
   const [progress, setProgress] = useState(0)
   const progressRef = useRef(0)
   const [ready, setReady] = useState(false)
+  const [idle, setIdle] = useState(false)
+
+  // After a few seconds of no interaction, reveal + bob the scroll hint.
+  useEffect(() => {
+    let timer: number
+    const reset = () => {
+      setIdle(false)
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => setIdle(true), 3000)
+    }
+    const events = [
+      "scroll",
+      "mousemove",
+      "keydown",
+      "touchstart",
+      "pointerdown",
+      "wheel",
+    ] as const
+    reset()
+    events.forEach((e) =>
+      window.addEventListener(e, reset, { passive: true }),
+    )
+    return () => {
+      window.clearTimeout(timer)
+      events.forEach((e) => window.removeEventListener(e, reset))
+    }
+  }, [])
 
   useEffect(() => {
     let raf = 0
@@ -77,9 +104,6 @@ export function Experience() {
   const heroOpacity = clamp(1 - progress / 0.1)
   const fusion = anchor(progress, 0.14, 0.22, 0.3, 0.4)
   const anatomy = anchor(progress, 0.44, 0.54, 0.66, 0.78)
-  // Meta fades in as the card zooms past + fades out, then holds until the
-  // footer content scrolls up over it.
-  const meta = anchor(progress, 0.82, 0.9, 0.99, 1)
 
   // Scouter sequence driver (one-way reveal completed during the anatomy hold).
   const anatomyAppear = clamp((progress - 0.54) / 0.12)
@@ -120,7 +144,13 @@ export function Experience() {
             <CtaButton>Play Free Now</CtaButton>
           </div>
 
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 text-center">
+          <div
+            className="absolute bottom-10 left-1/2 -translate-x-1/2 text-center transition-opacity duration-700"
+            style={{
+              opacity: idle ? 1 : 0,
+              animation: idle ? "scroll-bob 1.8s ease-in-out infinite" : "none",
+            }}
+          >
             <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.4em] text-cyan-glow/70">
               Scroll to Fuse
             </p>
@@ -133,8 +163,8 @@ export function Experience() {
           </div>
         </div>
 
-        {/* 01 Fusion — text LEFT, card moves right */}
-        <div className="absolute inset-0 flex items-center justify-start px-8 sm:px-16 lg:px-28">
+        {/* 01 Fusion — text LEFT (pulled toward middle), card moves right */}
+        <div className="absolute inset-0 flex items-center justify-start px-8 sm:px-20 lg:pl-[12vw]">
           <div
             className="max-w-md border-l-2 border-l-purple-glow pl-6"
             style={{
@@ -154,10 +184,10 @@ export function Experience() {
           </div>
         </div>
 
-        {/* 02 Anatomy — text RIGHT, card on the left with the scouter */}
-        <div className="absolute inset-0 flex items-center justify-end px-8 sm:px-16 lg:px-28">
+        {/* 02 Anatomy — text RIGHT (pulled toward middle), card on the left */}
+        <div className="absolute inset-0 flex items-center justify-end px-8 sm:px-20 lg:pr-[12vw]">
           <div
-            className="max-w-xs border-r-2 border-r-cyan-glow pr-6 text-right"
+            className="max-w-sm border-r-2 border-r-cyan-glow pr-6 text-right"
             style={{
               opacity: anatomy.opacity,
               transform: `translateY(${anatomy.ty}px)`,
@@ -174,28 +204,6 @@ export function Experience() {
           </div>
         </div>
 
-        {/* 03 Meta — center */}
-        <div className="absolute inset-0 flex items-center justify-center px-6">
-          <div
-            className="max-w-lg text-center"
-            style={{
-              opacity: meta.opacity,
-              transform: `translateY(${meta.ty}px)`,
-            }}
-          >
-            <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-cyan-glow">
-              03 — Ranked
-            </p>
-            <h2 className={headingClass}>The Meta Never Sleeps.</h2>
-            <p className={`mx-auto max-w-md ${bodyClass}`}>
-              Take your fusions to the Ranked Ladder. Test your deck against
-              endless combinations.
-            </p>
-            <div className="pointer-events-auto mt-9">
-              <CtaButton variant="gold">Enter the Portal</CtaButton>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Scroll spacer drives the progress timeline for the fixed scene.
@@ -211,7 +219,7 @@ export function Experience() {
 
 function GameplayFooter() {
   return (
-    <section className="relative z-30 w-full bg-background">
+    <section className="relative z-30 w-full">
       <div className="mx-auto max-w-6xl px-6 py-24">
         <div className="mb-12 text-center">
           <p className="mb-3 font-mono text-xs uppercase tracking-[0.4em] text-cyan-glow/80">
@@ -236,6 +244,24 @@ function GameplayFooter() {
               </svg>
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* 03 Ranked — final CTA, placed AFTER the gameplay video so it's the
+          last thing users see before being prompted to enter the portal. */}
+      <div className="mx-auto max-w-lg px-6 pb-28 pt-4 text-center">
+        <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-cyan-glow">
+          03 — Ranked
+        </p>
+        <h2 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+          The Meta Never Sleeps.
+        </h2>
+        <p className="mx-auto mt-5 max-w-md text-pretty leading-relaxed text-foreground/75">
+          Take your fusions to the Ranked Ladder. Test your deck against endless
+          combinations.
+        </p>
+        <div className="mt-9">
+          <CtaButton variant="gold">Enter the Portal</CtaButton>
         </div>
       </div>
 

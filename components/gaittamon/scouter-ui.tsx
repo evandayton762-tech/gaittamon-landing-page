@@ -14,24 +14,24 @@ const POINTS: {
 }[] = [
   {
     id: "name",
-    dot: [30, 36],
-    label: [47, 27],
+    dot: [29, 34],
+    label: [44, 23],
     text: "Mystitoad · Exalted",
     align: "start",
     origin: "left",
   },
   {
     id: "tier",
-    dot: [38, 55],
-    label: [49, 58],
+    dot: [36, 54],
+    label: [44, 58],
     text: "Lv. 20 · Tier 6",
     align: "start",
     origin: "left",
   },
   {
     id: "stat",
-    dot: [30, 70],
-    label: [30, 84],
+    dot: [29, 72],
+    label: [21, 93],
     text: "Inline Stat Bar · HP",
     align: "mid",
     origin: "top",
@@ -44,8 +44,9 @@ function labelWrapTransform(align: "start" | "end" | "mid") {
   return "translate(-50%, 0)"
 }
 
-// Card-bounding reticle corners (tight around the left-positioned card).
-const RET = { x1: 20, y1: 28, x2: 41, y2: 78 }
+// Card-bounding reticle corners — expanded to frame OUTSIDE the
+// left-positioned card with breathing room on all sides.
+const RET = { x1: 4, y1: 7, x2: 38, y2: 86 }
 
 /**
  * Dragon-Ball "scouter" HUD pointing at the card (left side in the anatomy
@@ -93,19 +94,22 @@ export function ScouterUi({
           <path d={`M${RET.x2} ${RET.y2 - 7} V${RET.y2} H${RET.x2 - 6}`} />
         </g>
 
-        {POINTS.map((p) => (
-          <path
-            key={p.id}
-            d={`M ${p.dot[0]} ${p.dot[1]} L ${p.label[0]} ${p.label[1]}`}
-            pathLength={1}
-            strokeDasharray={1}
-            strokeDashoffset={1 - draw}
-            stroke="currentColor"
-            strokeWidth="1.25"
-            vectorEffect="non-scaling-stroke"
-            style={{ opacity: 0.75 }}
-          />
-        ))}
+        {POINTS.map((p) => {
+          // Endpoint grows from the dot toward the label as `draw` goes 0->1,
+          // so the line visibly extends out of the dot (no sliding/shift).
+          const ex = p.dot[0] + (p.label[0] - p.dot[0]) * draw
+          const ey = p.dot[1] + (p.label[1] - p.dot[1]) * draw
+          return (
+            <path
+              key={p.id}
+              d={`M ${p.dot[0]} ${p.dot[1]} L ${ex} ${ey}`}
+              stroke="currentColor"
+              strokeWidth="1.25"
+              vectorEffect="non-scaling-stroke"
+              style={{ opacity: draw > 0.001 ? 0.75 : 0 }}
+            />
+          )
+        })}
       </svg>
 
       {/* Pulsing dots anchored on the card */}

@@ -163,8 +163,8 @@ export function CardMesh({
     group.current.rotation.z = damp(group.current.rotation.z, rotZ, 6, delta)
 
     // --- Position: center -> right -> left -> back to center for zoom. ---
-    const rightX = vw * 0.26
-    const leftX = -vw * 0.2
+    const rightX = vw * 0.2 // fusion stage: nudged in from the edge
+    const leftX = -vw * 0.2 // anatomy stage: left side (kept)
     let x = lerp(0, rightX, sTurn)
     x = lerp(x, leftX, sCenter)
     x *= 1 - sZoom

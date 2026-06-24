@@ -206,3 +206,14 @@
     opacity: 1;
   }
 }
+
+/* Idle scroll hint: gentle vertical bob. Keeps the -50% horizontal centering. */
+@keyframes scroll-bob {
+  0%,
+  100% {
+    transform: translate(-50%, 0);
+  }
+  50% {
+    transform: translate(-50%, 8px);
+  }
+}
