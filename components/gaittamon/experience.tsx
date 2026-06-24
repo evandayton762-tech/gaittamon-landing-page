@@ -18,8 +18,10 @@ function band(p: number, start: number, peak: number, end: number) {
   return 1 - (p - peak) / (end - peak)
 }
 
-const glass =
-  "rounded-2xl border border-white/10 bg-[#0a0a14]/60 p-7 backdrop-blur-xl sm:p-9"
+// Seamless, background-free panels: just the accent line + a soft text shadow
+// so copy stays legible over the live 3D scene.
+const panel =
+  "max-w-md pl-6 [text-shadow:0_2px_18px_rgba(0,0,0,0.9)]"
 
 export function Experience() {
   const progress = useScrollProgress()
@@ -36,7 +38,9 @@ export function Experience() {
 
   const heroOpacity = Math.max(0, 1 - progress / 0.12)
   const fusionOpacity = band(progress, 0.16, 0.27, 0.4)
-  const anatomyOpacity = band(progress, 0.42, 0.52, 0.64)
+  const anatomyOpacity = band(progress, 0.42, 0.54, 0.66)
+  // One-way reveal driver for the scouter sequence (dots -> lines -> labels).
+  const anatomyAppear = Math.min(1, Math.max(0, (progress - 0.44) / 0.16))
   const metaOpacity = band(progress, 0.68, 0.8, 0.92)
 
   return (
@@ -48,7 +52,7 @@ export function Experience() {
       <div className="pointer-events-none fixed inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_45%,#050505_100%)]" />
 
       {/* Scouter HUD */}
-      <ScouterUi opacity={anatomyOpacity} />
+      <ScouterUi opacity={anatomyOpacity} appear={anatomyAppear} />
 
       {/* ===== Stage 1: Hero ===== */}
       <section className="relative z-30 flex h-screen w-full items-center justify-center px-6">
@@ -92,10 +96,10 @@ export function Experience() {
         </motion.div>
       </section>
 
-      {/* ===== Stage 2: Fusion (right) ===== */}
-      <section className="relative z-30 flex h-screen w-full items-center justify-end px-6 sm:px-12 lg:px-20">
+      {/* ===== Stage 2: Fusion (text left, card moves right) ===== */}
+      <section className="relative z-30 flex h-screen w-full items-center justify-start px-6 sm:px-12 lg:px-20">
         <motion.div
-          className={`max-w-md border-l-2 border-l-purple-glow ${glass}`}
+          className={`border-l-2 border-l-purple-glow ${panel}`}
           style={{ opacity: fusionOpacity }}
         >
           <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-purple-glow">
@@ -111,10 +115,10 @@ export function Experience() {
         </motion.div>
       </section>
 
-      {/* ===== Stage 3: Anatomy (left) ===== */}
+      {/* ===== Stage 3: Anatomy (text left, card centered for scouter) ===== */}
       <section className="relative z-30 flex h-screen w-full items-center justify-start px-6 sm:px-12 lg:px-20">
         <motion.div
-          className={`max-w-md border-r-2 border-r-purple-glow ${glass}`}
+          className={`max-w-xs border-l-2 border-l-purple-glow ${panel}`}
           style={{ opacity: anatomyOpacity }}
         >
           <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-purple-glow">
@@ -133,7 +137,7 @@ export function Experience() {
       {/* ===== Stage 4: Meta (center) ===== */}
       <section className="relative z-30 flex h-screen w-full items-center justify-center px-6">
         <motion.div
-          className={`max-w-lg text-center ${glass}`}
+          className="max-w-lg text-center [text-shadow:0_2px_18px_rgba(0,0,0,0.9)]"
           style={{ opacity: metaOpacity }}
         >
           <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-cyan-glow">
@@ -160,7 +164,7 @@ export function Experience() {
 
 function GameplayFooter() {
   return (
-    <section className="relative z-30 w-full bg-background">
+    <section className="relative z-30 w-full">
       <div className="mx-auto max-w-6xl px-6 py-24">
         <div className="mb-12 text-center">
           <p className="mb-3 font-mono text-xs uppercase tracking-[0.4em] text-cyan-glow/80">

@@ -2,7 +2,7 @@
 
 import { Suspense, useRef, type MutableRefObject } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
-import { Environment, Float } from "@react-three/drei"
+import { Environment } from "@react-three/drei"
 import * as THREE from "three"
 import { CardMesh } from "./card-mesh"
 
@@ -43,9 +43,7 @@ export function Scene({
 
         <Suspense fallback={null}>
           <SweepLight progressRef={progressRef} />
-          <Float speed={1.2} rotationIntensity={0.15} floatIntensity={0.25}>
-            <CardMesh progressRef={progressRef} />
-          </Float>
+          <CardMesh progressRef={progressRef} />
           <Environment preset="night" />
         </Suspense>
       </Canvas>

@@ -1,73 +1,137 @@
 "use client"
 
-import { motion } from "framer-motion"
+const clamp = (v: number) => Math.min(1, Math.max(0, v))
 
-function ScoutTag({
-  label,
-  className,
-}: {
-  label: string
-  className?: string
-}) {
-  return (
-    <div
-      className={`pointer-events-none absolute flex items-center gap-2 ${className}`}
-    >
-      <span className="relative flex h-2.5 w-2.5">
-        <span
-          className="absolute inline-flex h-full w-full rounded-full bg-cyan-glow"
-          style={{ animation: "scout-pulse 1.6s ease-in-out infinite" }}
-        />
-      </span>
-      <span className="whitespace-nowrap rounded-sm border border-cyan-glow/50 bg-[#04141a]/80 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-glow shadow-glow-cyan backdrop-blur-sm sm:text-xs">
-        {label}
-      </span>
-    </div>
-  )
+type Anchor = "start" | "end" | "mid"
+
+const POINTS: {
+  id: string
+  dot: [number, number]
+  label: [number, number]
+  text: string
+  anchor: Anchor
+}[] = [
+  {
+    id: "name",
+    dot: [50, 27],
+    label: [27, 15],
+    text: "Mystitoad · Exalted",
+    anchor: "end",
+  },
+  {
+    id: "tier",
+    dot: [60, 50],
+    label: [82, 47],
+    text: "Lv. 20 · Tier 6",
+    anchor: "start",
+  },
+  {
+    id: "stat",
+    dot: [50, 72],
+    label: [50, 87],
+    text: "Inline Stat Bar · HP · Abilities",
+    anchor: "mid",
+  },
+]
+
+function labelTransform(anchor: Anchor) {
+  if (anchor === "end") return "translate(-100%, -50%)"
+  if (anchor === "start") return "translate(0, -50%)"
+  return "translate(-50%, 0)"
 }
 
 /**
- * Dragon-Ball "scouter" style HUD that points at parts of the 3D card.
- * Visible only during the anatomy stage; opacity controlled by parent.
+ * Dragon-Ball "scouter" HUD pointing at the centered card.
+ * Sequenced by `appear` (0..1): dots fade in first, then lines draw outward
+ * from each dot toward its label, then the labels fade in. `opacity` controls
+ * the whole overlay (fade in + out with the section).
  */
-export function ScouterUi({ opacity }: { opacity: number }) {
+export function ScouterUi({
+  opacity,
+  appear,
+}: {
+  opacity: number
+  appear: number
+}) {
+  const dotsO = clamp(appear / 0.3)
+  const draw = clamp((appear - 0.25) / 0.5)
+  const labelO = clamp((appear - 0.62) / 0.32)
+
   return (
-    <motion.div
+    <div
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 z-20"
       style={{ opacity }}
     >
-      {/* Reticle bracket framing the card */}
+      {/* Connector lines (draw outward from each dot) */}
       <svg
-        className="absolute left-1/2 top-1/2 h-[70vh] w-[70vh] -translate-x-1/2 -translate-y-1/2 text-cyan-glow/40"
+        className="absolute inset-0 h-full w-full text-cyan-glow"
         viewBox="0 0 100 100"
+        preserveAspectRatio="none"
         fill="none"
       >
-        <path d="M8 22 V8 H22" stroke="currentColor" strokeWidth="0.6" />
-        <path d="M92 22 V8 H78" stroke="currentColor" strokeWidth="0.6" />
-        <path d="M8 78 V92 H22" stroke="currentColor" strokeWidth="0.6" />
-        <path d="M92 78 V92 H78" stroke="currentColor" strokeWidth="0.6" />
-        {/* connector lines toward tags */}
-        <line x1="34" y1="30" x2="20" y2="22" stroke="currentColor" strokeWidth="0.4" />
-        <line x1="66" y1="50" x2="82" y2="50" stroke="currentColor" strokeWidth="0.4" />
-        <line x1="50" y1="74" x2="50" y2="86" stroke="currentColor" strokeWidth="0.4" />
+        {/* corner reticle, fades in with the dots */}
+        <g
+          stroke="currentColor"
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+          style={{ opacity: dotsO * 0.5 }}
+        >
+          <path d="M18 30 V18 H30" />
+          <path d="M82 30 V18 H70" />
+          <path d="M18 70 V82 H30" />
+          <path d="M82 70 V82 H70" />
+        </g>
+
+        {POINTS.map((p) => (
+          <path
+            key={p.id}
+            d={`M ${p.dot[0]} ${p.dot[1]} L ${p.label[0]} ${p.label[1]}`}
+            pathLength={1}
+            strokeDasharray={1}
+            strokeDashoffset={1 - draw}
+            stroke="currentColor"
+            strokeWidth="1.25"
+            vectorEffect="non-scaling-stroke"
+            style={{ opacity: 0.7 }}
+          />
+        ))}
       </svg>
 
-      {/* Top-left of card */}
-      <ScoutTag
-        label="Mystitoad (Exalted)"
-        className="left-[14%] top-[20%] sm:left-[24%] sm:top-[22%]"
-      />
-      {/* Middle-right of card */}
-      <ScoutTag
-        label="Lv. 20 · Tier 6"
-        className="right-[10%] top-[48%] sm:right-[22%]"
-      />
-      {/* Bottom of card */}
-      <ScoutTag
-        label="Inline Stat Bar: Icons · HP · Ticks · Abilities"
-        className="bottom-[18%] left-1/2 -translate-x-1/2 sm:bottom-[20%]"
-      />
-    </motion.div>
+      {/* Pulsing dots anchored on the card */}
+      {POINTS.map((p) => (
+        <div
+          key={p.id}
+          className="absolute -translate-x-1/2 -translate-y-1/2"
+          style={{ left: `${p.dot[0]}%`, top: `${p.dot[1]}%`, opacity: dotsO }}
+        >
+          <span className="relative flex h-3 w-3 items-center justify-center">
+            <span
+              className="absolute inline-flex h-full w-full rounded-full bg-cyan-glow/60"
+              style={{ animation: "scout-pulse 1.6s ease-in-out infinite" }}
+            />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-glow shadow-glow-cyan" />
+          </span>
+        </div>
+      ))}
+
+      {/* Labels fade in last */}
+      {POINTS.map((p) => (
+        <div
+          key={p.id}
+          className="absolute"
+          style={{
+            left: `${p.label[0]}%`,
+            top: `${p.label[1]}%`,
+            transform: labelTransform(p.anchor),
+            opacity: labelO,
+          }}
+        >
+          <span className="whitespace-nowrap rounded-sm border border-cyan-glow/50 bg-[#04141a]/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-glow shadow-glow-cyan backdrop-blur-sm sm:text-xs">
+            {p.text}
+          </span>
+        </div>
+      ))}
+    </div>
   )
 }
