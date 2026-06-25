@@ -6,6 +6,24 @@ import { Environment } from "@react-three/drei"
 import * as THREE from "three"
 import { CardMesh } from "./card-mesh"
 import { Title3D } from "./title-3d"
+import { HeroJunniElements } from "./hero-junni-elements"
+import { LayeredTextSection } from "./layered-text-section"
+import { InterstellarSection } from "./interstellar-section"
+import { FusionSection } from "./fusion-section"
+import { FogClouds } from "./fog-clouds"
+
+const damp = THREE.MathUtils.damp
+
+// Global subtle camera drift toward the pointer — applies in every section,
+// stacking on top of the card tilt and per-letter title reactivity.
+function CameraParallax() {
+  useFrame((state, delta) => {
+    state.camera.position.x = damp(state.camera.position.x, state.pointer.x * 0.015, 4, delta)
+    state.camera.position.y = damp(state.camera.position.y, state.pointer.y * 0.01, 4, delta)
+    state.camera.lookAt(0, 0, 0)
+  })
+  return null
+}
 
 // A moving rim light that sweeps to create the "dynamic reflection" during the
 // anatomy stage.
@@ -42,8 +60,15 @@ export function Scene({
         <directionalLight position={[-4, 3, 5]} intensity={1.2} color="#b48cff" />
         <pointLight position={[0, -3, 4]} intensity={20} color="#c79a3a" distance={16} />
 
+        <CameraParallax />
+
         <Suspense fallback={null}>
           <SweepLight progressRef={progressRef} />
+          <HeroJunniElements progressRef={progressRef} />
+          <LayeredTextSection progressRef={progressRef} />
+          <InterstellarSection progressRef={progressRef} />
+          <FogClouds progressRef={progressRef} />
+          <FusionSection progressRef={progressRef} />
           <CardMesh progressRef={progressRef} />
           <Title3D progressRef={progressRef} />
           <Environment preset="night" />

@@ -14,7 +14,7 @@ export function TopNav() {
           width={160}
           height={72}
           priority
-          className="h-14 w-auto object-contain drop-shadow-[0_0_12px_rgba(255,180,0,0.5)]"
+          className="h-16 w-auto object-contain drop-shadow-[0_0_18px_rgba(255,180,0,0.75)] sm:h-20"
         />
       </a>
 
@@ -71,7 +71,7 @@ export function TopNav() {
         {/* Play CTA — bigger, gold-accented */}
         <a
           href="#play"
-          className="ml-8 rounded-full border-2 border-gold/70 bg-gold/10 px-7 py-2.5 font-mono text-sm font-semibold uppercase tracking-[0.22em] text-gold shadow-[0_0_18px_color-mix(in_oklch,var(--gold)_35%,transparent)] transition-all hover:bg-gold/20 hover:shadow-[0_0_28px_color-mix(in_oklch,var(--gold)_55%,transparent)]"
+          className="ml-8 rounded-full border-2 border-[#ffd700]/80 bg-[#ffd700]/10 px-7 py-2.5 font-mono text-sm font-semibold uppercase tracking-[0.22em] text-[#ffd700] shadow-[0_0_22px_rgba(255,215,0,0.4)] transition-all hover:bg-[#ffd700]/20 hover:shadow-[0_0_32px_rgba(255,215,0,0.6)]"
         >
           Play
         </a>
@@ -80,7 +80,7 @@ export function TopNav() {
       {/* Mobile: just the Play button */}
       <a
         href="#play"
-        className="flex sm:hidden rounded-full border-2 border-gold/70 bg-gold/10 px-5 py-2 font-mono text-sm font-semibold uppercase tracking-[0.18em] text-gold"
+        className="flex sm:hidden rounded-full border-2 border-[#ffd700]/80 bg-[#ffd700]/10 px-5 py-2 font-mono text-sm font-semibold uppercase tracking-[0.18em] text-[#ffd700] shadow-[0_0_22px_rgba(255,215,0,0.4)]"
       >
         Play
       </a>

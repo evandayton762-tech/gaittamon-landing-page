@@ -27,6 +27,7 @@ export function Title3D({
   const wrappers = useRef<(THREE.Group | null)[]>([])
   const meshes = useRef<(THREE.Mesh | null)[]>([])
   const basePos = useRef<number[]>([])
+  const centerIndex = useRef(0)
   const fitScale = useRef(1)
   const laidOut = useRef(false)
 
@@ -67,18 +68,28 @@ export function Title3D({
           if (wrap) wrap.position.x = cx
           cursor += w + LETTER_GAP
         })
-        laidOut.current = true
-        console.log("[v0] title layout", {
-          widths,
-          basePos: [...basePos.current],
-          wrappersFilled: wrappers.current.filter(Boolean).length,
+        // Letter nearest x=0 is the "center" letter for the split.
+        let nearest = 0
+        let nearestDist = Infinity
+        basePos.current.forEach((bx, i) => {
+          const d = Math.abs(bx)
+          if (d < nearestDist) {
+            nearestDist = d
+            nearest = i
+          }
         })
+        centerIndex.current = nearest
+        laidOut.current = true
       }
     }
 
-    // --- Hero-only visibility (fade with scroll) ---
+    // --- Letter split exit (p ∈ [0.08, 0.17]) ---
+    // splitProgress ramps with easeInQuad: starts slow, then accelerates as
+    // the card cleaves through the wordmark.
     const p = progressRef.current
-    const heroOpacity = Math.min(1, Math.max(0, 1 - p / 0.1))
+    const splitProgress = Math.min(1, Math.max(0, (p - 0.08) / 0.09))
+    const sp = splitProgress * splitProgress // easeInQuad
+    const heroOpacity = 1 - sp
     g.visible = heroOpacity > 0.01
     if (!g.visible) return
 
@@ -111,17 +122,34 @@ export function Title3D({
     g.rotation.y = damp(g.rotation.y, orbitY, 4, delta)
     g.rotation.x = damp(g.rotation.x, orbitX, 4, delta)
 
-    // --- Per-letter reaction to the pointer + idle float ---
+    // --- Per-letter reaction to the pointer + idle float + scroll split ---
     wrappers.current.forEach((w, i) => {
       if (!w) return
-      const lx = (basePos.current[i] ?? 0) * fitScale.current
+      const baseX = basePos.current[i] ?? 0
+      const lx = baseX * fitScale.current
       const dx = px - lx
       const dy = py - 0
       const react = Math.exp(-((dx * dx) / 1.1 + (dy * dy) / 0.7))
 
+      // Split offsets — left letters fly left, right letters fly right, the
+      // center letter launches straight up. Z pushes everything toward camera.
+      let splitX = 0
+      let splitY = 0
+      let splitZ = 0
+      if (i === centerIndex.current) {
+        splitY = 2.5 * sp
+      } else if (baseX < -0.2) {
+        splitX = -3.5 * sp
+        splitZ = 1.0 * sp
+      } else if (baseX > 0.2) {
+        splitX = 3.5 * sp
+        splitZ = 1.0 * sp
+      }
+
       const floatY = Math.sin(t * 1.1 + i * 0.6) * 0.03
-      w.position.y = damp(w.position.y, floatY + react * 0.12, 8, delta)
-      w.position.z = damp(w.position.z, react * 0.7, 8, delta)
+      w.position.x = damp(w.position.x, baseX + splitX, 8, delta)
+      w.position.y = damp(w.position.y, floatY + react * 0.12 + splitY, 8, delta)
+      w.position.z = damp(w.position.z, react * 0.7 + splitZ, 8, delta)
       w.rotation.y = damp(w.rotation.y, react * Math.sign(dx) * -0.35, 8, delta)
       w.rotation.x = damp(w.rotation.x, react * Math.sign(dy) * 0.3, 8, delta)
     })

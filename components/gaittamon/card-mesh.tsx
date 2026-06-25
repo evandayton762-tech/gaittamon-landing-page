@@ -79,6 +79,8 @@ export function CardMesh({
   const frontMat = useRef<THREE.MeshStandardMaterial>(null)
   const backMat = useRef<THREE.MeshStandardMaterial>(null)
   const bodyMat = useRef<THREE.MeshStandardMaterial>(null)
+  // Continuous Y spin accumulator used during the Section 2 interstellar hold.
+  const autoRot = useRef(0)
 
   // Pointer interaction state.
   const hovered = useRef(false)
@@ -139,63 +141,68 @@ export function CardMesh({
     const fit = clamp(vw / 3.6, 0.5, 1)
     const baseScale = 0.72 * fit
 
-    // Stage windows (driven by the spacer-relative progress in experience.tsx)
-    const sTurn = easeInOut(stage(p, 0.12, 0.34)) // hero -> fusion (right)
-    const sCenter = easeInOut(stage(p, 0.4, 0.58)) // fusion -> anatomy (left)
-    const sZoom = easeInOut(stage(p, 0.7, 0.9)) // anatomy -> zoom past
+    // Stage windows (driven by the spacer-relative progress in experience.tsx).
+    // New timeline: hero(back) -> split flip to front + slide right -> Section 1
+    // hold on the right -> return to center for the Section 2 interstellar
+    // hold (continuous Y auto-rotate) -> fade out as the Section 3 shatter
+    // takes over.
+    const sFlip = easeInOut(stage(p, 0.08, 0.2)) // hero -> right + flip to front
+    const sToCenter = easeInOut(stage(p, 0.37, 0.42)) // right -> center for Sec 2
+    const inSec2 = p >= 0.42 && p < 0.66
+    const sFade = stage(p, 0.63, 0.69) // dissolve as the shatter begins
 
-    // --- Rotation ---
-    // Hero:    back facing camera (rotY = PI)
-    // Fusion:  flips to front while moving right (PI -> 2*PI)
-    // Anatomy: full left revolution back to front-facing (2*PI -> 3*PI = front again after 1 full turn wait, using 0 as equivalent)
-    // Zoom:    pirouette — one full extra Y spin (0 -> 2*PI) while rising toward camera, ends with back showing (lands on PI)
-    let rotY = lerp(PI, PI * 2, sTurn)
-    rotY = lerp(rotY, 0, sCenter)
-    // Pirouette: 0 -> PI (half turn = back of card) over the zoom stage
-    rotY = lerp(rotY, PI, sZoom)
-    rotY += Math.sin(t * 0.5) * 0.04 * (1 - sTurn)
+    const rightX = vw * 0.2
 
-    let rotX = -0.02 + Math.sin(t * 0.4) * 0.02 * (1 - sZoom)
-    let rotZ = Math.sin(sCenter * PI) * 0.04
-
-    // --- Pointer tilt: subtle on hover, stronger while pressed, snaps back. ---
+    // --- Pointer tilt: subtle on hover, stronger while pressed. ---
     const strength = pressed.current ? 0.4 : hovered.current ? 0.16 : 0
-    rotY += pointer.current.x * strength
-    rotX += -pointer.current.y * strength
 
-    group.current.rotation.y = damp(group.current.rotation.y, rotY, 6, delta)
-    group.current.rotation.x = damp(group.current.rotation.x, rotX, 6, delta)
-    group.current.rotation.z = damp(group.current.rotation.z, rotZ, 6, delta)
+    if (inSec2) {
+      // Centered slow auto-rotate on Y with a slight forward tilt.
+      autoRot.current += delta * 0.35
+      group.current.rotation.y = autoRot.current + pointer.current.x * strength
+      group.current.rotation.x = damp(
+        group.current.rotation.x,
+        0.15 - pointer.current.y * strength,
+        6,
+        delta,
+      )
+      group.current.rotation.z = damp(group.current.rotation.z, 0, 6, delta)
+    } else {
+      let rotY = lerp(PI, PI * 2, sFlip) // PI (back) -> 2*PI (front)
+      rotY += Math.sin(t * 0.5) * 0.04 * (1 - sFlip)
+      rotY += pointer.current.x * strength
+      // Seed the auto-rotate accumulator so Section 2 picks up seamlessly.
+      autoRot.current = rotY
+      let rotX = -0.02 + Math.sin(t * 0.4) * 0.02
+      rotX += -pointer.current.y * strength
+      const rotZ = 0
+      group.current.rotation.y = damp(group.current.rotation.y, rotY, 6, delta)
+      group.current.rotation.x = damp(group.current.rotation.x, rotX, 6, delta)
+      group.current.rotation.z = damp(group.current.rotation.z, rotZ, 6, delta)
+    }
 
-    // --- Position: center -> right -> left -> back to center for zoom. ---
-    const rightX = vw * 0.2 // fusion stage: nudged in from the edge
-    const leftX = -vw * 0.2 // anatomy stage: left side (kept)
-    let x = lerp(0, rightX, sTurn)
-    x = lerp(x, leftX, sCenter)
-    x *= 1 - sZoom
-
-    const floatY = Math.sin(t * 0.9) * 0.05 * (1 - sZoom)
+    // --- Position: center -> right (Section 1) -> back to center (Section 2). ---
+    let x = lerp(0, rightX, sFlip)
+    x = lerp(x, 0, sToCenter)
+    const floatY = Math.sin(t * 0.9) * 0.05
     const y = floatY
 
     group.current.position.x = damp(group.current.position.x, x, 5, delta)
     group.current.position.y = damp(group.current.position.y, y, 5, delta)
+    group.current.position.z = damp(group.current.position.z, 0, 7, delta)
 
-    // --- Scale: shrink aside, small for anatomy, modest grow for zoom. ---
-    let scl = lerp(baseScale, baseScale * 0.78, sTurn)
-    scl = lerp(scl, baseScale * 0.82, sCenter)
-    scl = lerp(scl, baseScale * 1.7, sZoom)
+    // --- Scale: slightly smaller on the right, full size when centered. ---
+    let scl = lerp(baseScale, baseScale * 0.85, sFlip)
+    scl = lerp(scl, baseScale, sToCenter)
     const s = damp(group.current.scale.x, scl, 7, delta)
     group.current.scale.setScalar(s)
 
-    // --- Zoom-past: push toward camera while fading out EARLY, so the card is
-    // already invisible before it grows large enough to look pixelated. ---
-    const z = lerp(0, 3.2, sZoom)
-    group.current.position.z = damp(group.current.position.z, z, 7, delta)
-
-    const targetOpacity = 1 - stage(p, 0.7, 0.8)
+    // The solid card dissolves as the Section 3 shatter fragments take over.
+    const targetOpacity = 1 - sFade
     for (const m of [frontMat.current, backMat.current, bodyMat.current]) {
       if (m) m.opacity = damp(m.opacity, targetOpacity, 8, delta)
     }
+    group.current.visible = targetOpacity > 0.01
   })
 
   return (
