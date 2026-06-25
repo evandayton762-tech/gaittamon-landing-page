@@ -155,40 +155,54 @@ export function HeroJunniElements({
       meshes.forEach((m, i) => make(m, i, meshes.length))
     }
 
-    // --- Lines ---
+    // Reset parent transforms so repositioning a named child doesn't get the
+    // parent transform applied twice.
+    const resetParent = (name: string) => {
+      const parent = root.getObjectByName(name)
+      if (parent) {
+        parent.position.set(0, 0, 0)
+        parent.rotation.set(0, 0, 0)
+        parent.scale.set(1, 1, 1)
+      }
+    }
+    ;["Lines", "Crosses", "Dots", "Slashes", "Gradations"].forEach(resetParent)
+
+    // --- Lines node actually contains SPHERES — render them as a popping
+    // dot/sphere cluster (DOTS shader), not bars. ---
     const lines = root.getObjectByName("Lines")
     if (lines) {
-      lines.scale.set(0.6, 0.6, 0.6)
       lines.position.set(0, -0.2, 0)
-      applyToMeshes(lines, (m) => {
-        m.geometry.computeBoundingBox()
-        const bb = m.geometry.boundingBox
-        const len = bb ? bb.max.y - bb.min.y : 1
+      const meshes: THREE.Mesh[] = []
+      lines.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh)
+      })
+      meshes.forEach((m, i) => {
         const uniforms = {
           uVisibility: { value: 0 },
-          len: { value: len },
+          num: { value: i / Math.max(1, meshes.length) },
           uHeroFade: { value: 1 },
         }
         m.material = new THREE.ShaderMaterial({
-          vertexShader: LINES_VERT,
-          fragmentShader: LINES_FRAG,
+          vertexShader: DOTS_VERT,
+          fragmentShader: DOTS_FRAG,
           transparent: true,
+          side: THREE.DoubleSide,
           uniforms,
         })
-        tracked.push({ uniforms, kind: "lines", delay: 0 })
+        tracked.push({ uniforms, kind: "dots", delay: 0 })
       })
     }
 
     // --- Crosses (instanced, 3 per cross) ---
     const crossLayout: Record<string, { pos: [number, number, number]; delay: number }> = {
-      Cross_Right: { pos: [-0.3, 0.4, 0], delay: 0 },
-      Cross_Left: { pos: [0.4, -0.6, 0], delay: 0.5 },
+      Cross_Right: { pos: [2.6, 1.4, 0], delay: 0 },
+      Cross_Left: { pos: [-2.8, -1.2, 0], delay: 0.5 },
     }
     for (const name of Object.keys(crossLayout)) {
       const cross = root.getObjectByName(name)
       if (!cross) continue
       cross.position.set(...crossLayout[name].pos)
-      cross.scale.setScalar(0.8)
+      cross.scale.setScalar(1.0)
       applyToMeshes(cross, (m) => {
         const src = m.geometry
         const ig = new THREE.InstancedBufferGeometry()
@@ -257,9 +271,11 @@ export function HeroJunniElements({
       })
     }
 
-    // --- Slashes ---
+    // --- Slashes — the single diagonal line crossing the hero center ---
     const slashes = root.getObjectByName("Slashes")
     if (slashes) {
+      slashes.position.set(0, 0, 0.3) // slightly in front of the card
+      slashes.scale.setScalar(1.2)
       applyToMeshes(slashes, (m) => {
         const uniforms = {
           uVisibility: { value: 0 },
@@ -332,7 +348,7 @@ export function HeroJunniElements({
   })
 
   return (
-    <group ref={groupRef} position={[0, 0, -1.2]} scale={0.32}>
+    <group ref={groupRef} position={[0, 0, -0.5]} scale={0.85}>
       <primitive object={root} />
     </group>
   )

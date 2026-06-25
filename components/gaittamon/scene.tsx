@@ -3,6 +3,8 @@
 import { Suspense, useRef, type MutableRefObject } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
 import { Environment } from "@react-three/drei"
+import { EffectComposer, Bloom, Noise, Vignette } from "@react-three/postprocessing"
+import { BlendFunction } from "postprocessing"
 import * as THREE from "three"
 import { CardMesh } from "./card-mesh"
 import { Title3D } from "./title-3d"
@@ -11,15 +13,21 @@ import { LayeredTextSection } from "./layered-text-section"
 import { InterstellarSection } from "./interstellar-section"
 import { FusionSection } from "./fusion-section"
 import { FogClouds } from "./fog-clouds"
+import { BackgroundSphere } from "./background-sphere"
 
 const damp = THREE.MathUtils.damp
+const clamp = (v: number) => Math.min(1, Math.max(0, v))
 
 // Global subtle camera drift toward the pointer — applies in every section,
-// stacking on top of the card tilt and per-letter title reactivity.
-function CameraParallax() {
+// stacking on top of the card tilt and per-letter title reactivity. The
+// parallax strength increases in Section 3 so the shatter tableau shifts more.
+function CameraParallax({ progressRef }: { progressRef: MutableRefObject<number> }) {
   useFrame((state, delta) => {
-    state.camera.position.x = damp(state.camera.position.x, state.pointer.x * 0.015, 4, delta)
-    state.camera.position.y = damp(state.camera.position.y, state.pointer.y * 0.01, 4, delta)
+    const p = progressRef.current
+    const sec3 = clamp((p - 0.6) / 0.1)
+    const k = 0.015 + sec3 * 0.01
+    state.camera.position.x = damp(state.camera.position.x, state.pointer.x * k, 4, delta)
+    state.camera.position.y = damp(state.camera.position.y, state.pointer.y * (k * 0.66), 4, delta)
     state.camera.lookAt(0, 0, 0)
   })
   return null
@@ -41,6 +49,76 @@ function SweepLight({ progressRef }: { progressRef: MutableRefObject<number> }) 
   return <pointLight ref={light} color="#5ee9ff" position={[2, 1, 3]} distance={14} />
 }
 
+// Three colored point lights orbiting on Lissajous paths — they keep the hero
+// and shatter scenes feeling "alive" with shifting colored light in palette.
+function MovingLights() {
+  const a = useRef<THREE.PointLight>(null)
+  const b = useRef<THREE.PointLight>(null)
+  const c = useRef<THREE.PointLight>(null)
+  useFrame((state) => {
+    const t = state.clock.elapsedTime
+    if (a.current) {
+      a.current.position.set(Math.sin(t * 0.35) * 4, Math.cos(t * 0.27) * 2.6, 2 + Math.sin(t * 0.2) * 1.5)
+    }
+    if (b.current) {
+      b.current.position.set(Math.sin(t * 0.23 + 2) * 3.5, Math.cos(t * 0.31 + 1) * 3, 1.5 + Math.cos(t * 0.18) * 1.5)
+    }
+    if (c.current) {
+      c.current.position.set(Math.cos(t * 0.29 + 4) * 3, Math.sin(t * 0.21 + 3) * 2.2, 2.5 + Math.sin(t * 0.25) * 1.2)
+    }
+  })
+  return (
+    <>
+      <pointLight ref={a} color="#c79a3a" intensity={26} distance={16} />
+      <pointLight ref={b} color="#8a4aff" intensity={22} distance={16} />
+      <pointLight ref={c} color="#5ee9ff" intensity={18} distance={16} />
+    </>
+  )
+}
+
+// CursorLight — a directional light whose position damps toward the pointer so
+// the lighting on the Section 3 orb/shards shifts as the mouse moves.
+function CursorLight({ progressRef }: { progressRef: MutableRefObject<number> }) {
+  const light = useRef<THREE.DirectionalLight>(null)
+  const pos = useRef(new THREE.Vector3(0, 0, 2))
+  const vel = useRef(new THREE.Vector3())
+  useFrame((state, delta) => {
+    if (!light.current) return
+    const p = progressRef.current
+    const active = clamp((p - 0.6) / 0.06)
+    const goal = new THREE.Vector3(state.pointer.x * 4, state.pointer.y * 3, 2)
+    vel.current.add(goal.sub(pos.current).multiplyScalar(delta * 2.5))
+    vel.current.multiplyScalar(0.8)
+    pos.current.add(vel.current)
+    light.current.position.copy(pos.current)
+    light.current.intensity = active * 2.2
+  })
+  return <directionalLight ref={light} color="#ffe6a8" intensity={0} />
+}
+
+// Drives Bloom intensity per section: ~0 hero, ~1.0 Section 2, ~1.5 Section 3.
+function SectionBloom({ progressRef }: { progressRef: MutableRefObject<number> }) {
+  const ref = useRef<{ intensity: number }>(null)
+  useFrame((_, delta) => {
+    if (!ref.current) return
+    const p = progressRef.current
+    // ramp 0 -> 1.0 across Section 2, then 1.0 -> 1.5 across Section 3
+    const sec2 = clamp((p - 0.4) / 0.12)
+    const sec3 = clamp((p - 0.62) / 0.1)
+    const target = sec2 * 1.0 + sec3 * 0.5
+    ref.current.intensity = damp(ref.current.intensity, target, 3, delta)
+  })
+  return (
+    <Bloom
+      ref={ref as never}
+      intensity={0}
+      luminanceThreshold={0.5}
+      luminanceSmoothing={0.3}
+      mipmapBlur
+    />
+  )
+}
+
 export function Scene({
   progressRef,
 }: {
@@ -54,16 +132,18 @@ export function Scene({
         camera={{ position: [0, 0, 6], fov: 35 }}
       >
         <color attach="background" args={["#050505"]} />
-        <fog attach="fog" args={["#050505", 8, 18]} />
 
         <ambientLight intensity={0.35} color="#6a4aff" />
         <directionalLight position={[-4, 3, 5]} intensity={1.2} color="#b48cff" />
         <pointLight position={[0, -3, 4]} intensity={20} color="#c79a3a" distance={16} />
 
-        <CameraParallax />
+        <CameraParallax progressRef={progressRef} />
 
         <Suspense fallback={null}>
+          <BackgroundSphere />
+          <MovingLights />
           <SweepLight progressRef={progressRef} />
+          <CursorLight progressRef={progressRef} />
           <HeroJunniElements progressRef={progressRef} />
           <LayeredTextSection progressRef={progressRef} />
           <InterstellarSection progressRef={progressRef} />
@@ -72,6 +152,11 @@ export function Scene({
           <CardMesh progressRef={progressRef} />
           <Title3D progressRef={progressRef} />
           <Environment preset="night" />
+          <EffectComposer>
+            <SectionBloom progressRef={progressRef} />
+            <Noise premultiply blendFunction={BlendFunction.SOFT_LIGHT} opacity={0.12} />
+            <Vignette eskil={false} offset={0.3} darkness={0.7} />
+          </EffectComposer>
         </Suspense>
       </Canvas>
     </div>

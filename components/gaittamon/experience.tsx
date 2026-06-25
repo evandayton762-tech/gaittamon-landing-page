@@ -106,8 +106,6 @@ export function Experience() {
 
   // Hero copy fades out as the letter split begins (guide Step 3 windows).
   const heroOpacity = clamp(1 - progress / 0.1)
-  // Section 1 — Layered Typography + Glass (p ∈ [0.17, 0.37]).
-  const fusion = anchor(progress, 0.19, 0.25, 0.31, 0.37)
   // Section 2 — Interstellar + Scouter (p ∈ [0.40, 0.63]).
   const anatomy = anchor(progress, 0.42, 0.5, 0.6, 0.66)
   // Section 3 — Shatter / Fusion Core (p ∈ [0.72, 0.85]).
@@ -129,8 +127,8 @@ export function Experience() {
       {/* Fixed 3D layer (receives pointer events for card tilt) */}
       {ready && <Scene progressRef={progressRef} />}
 
-      {/* Vignette / atmosphere */}
-      <div className="pointer-events-none fixed inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_45%,#050505_100%)]" />
+      {/* Vignette is now applied inside the postprocessing composite (scene.tsx)
+          as a smooth shader multiply — no CSS radial-gradient ring. */}
 
       {/* Scouter HUD */}
       <ScouterUi opacity={anatomy.opacity} appear={anatomyAppear} />
@@ -177,26 +175,8 @@ export function Experience() {
           </div>
         </div>
 
-        {/* 01 Fusion — text LEFT (pulled toward middle), card moves right */}
-        <div className="absolute inset-0 flex items-center justify-start px-8 sm:px-20 lg:pl-[12vw]">
-          <div
-            className="max-w-md border-l-2 border-l-purple-glow pl-6"
-            style={{
-              opacity: fusion.opacity,
-              transform: `translateY(${fusion.ty}px)`,
-            }}
-          >
-            <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-purple-glow">
-              01 — Fusion
-            </p>
-            <h2 className={headingClass}>Infinite Alchemy.</h2>
-            <p className={bodyClass}>
-              Combine Tier 1, 2, and 3 creatures to unlock devastating Tier 4,
-              5, and 6 titans. Every match is a step toward your next ultimate
-              fusion.
-            </p>
-          </div>
-        </div>
+        {/* Section 1 (Layered Typography) renders its FUSION wordmark inside the
+            3D scene, so no HTML overlay copy is needed here. */}
 
         {/* 02 Anatomy — text RIGHT (pulled toward middle), card on the left */}
         <div className="absolute inset-0 flex items-center justify-end px-8 sm:px-20 lg:pr-[12vw]">
