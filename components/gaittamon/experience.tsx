@@ -2,15 +2,15 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import dynamic from "next/dynamic"
+import { useLenis } from "lenis/react"
 import { ScouterUi } from "./scouter-ui"
 import { CtaButton } from "./cta-button"
 import { TopNav } from "./top-nav"
 
 // Number of viewport-heights of scroll the card timeline plays across.
-const TIMELINE_SCREENS = 4
-// Total spacer height. Card is fully faded by ~0.8 of the timeline (=3.2 screens).
-// Keep the spacer tight so section 3 appears quickly after the fade.
-const SPACER_VH = 360
+const TIMELINE_SCREENS = 6
+// Total spacer height driving the fixed-scene timeline.
+const SPACER_VH = 540
 
 const Scene = dynamic(() => import("./scene").then((m) => m.Scene), {
   ssr: false,
@@ -79,34 +79,28 @@ export function Experience() {
     }
   }, [])
 
+  // Mark ready once mounted so the canvas can spin up client-side.
   useEffect(() => {
-    let raf = 0
-    const update = () => {
-      const denom = TIMELINE_SCREENS * window.innerHeight || 1
-      const next = clamp(window.scrollY / denom)
-      progressRef.current = next
-      setProgress(next)
-    }
-    const onScroll = () => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(update)
-    }
-    update()
     setReady(true)
-    window.addEventListener("scroll", onScroll, { passive: true })
-    window.addEventListener("resize", onScroll)
-    return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener("scroll", onScroll)
-      window.removeEventListener("resize", onScroll)
-    }
   }, [])
 
-  const heroOpacity = clamp(1 - progress / 0.1)
-  const fusion = anchor(progress, 0.14, 0.22, 0.3, 0.4)
-  const anatomy = anchor(progress, 0.44, 0.54, 0.66, 0.78)
+  // Lenis smooth-scroll drives the timeline progress (0..1) across
+  // TIMELINE_SCREENS viewport-heights of scroll.
+  useLenis(({ scroll }: { scroll: number }) => {
+    const denom = TIMELINE_SCREENS * window.innerHeight || 1
+    const next = clamp(scroll / denom)
+    progressRef.current = next
+    setProgress(next)
+  })
 
-  // Scouter sequence driver (one-way reveal completed during the anatomy hold).
+  // Hero copy fades out as the letter split begins (guide Step 3 windows).
+  const heroOpacity = clamp(1 - progress / 0.1)
+  // Section 1 — Layered Typography + Glass (p ∈ [0.17, 0.37]).
+  const fusion = anchor(progress, 0.19, 0.25, 0.31, 0.37)
+  // Section 2 — Interstellar + Scouter (p ∈ [0.40, 0.63]).
+  const anatomy = anchor(progress, 0.42, 0.5, 0.6, 0.66)
+
+  // Scouter sequence driver — auto-triggers late in the interstellar hold.
   const anatomyAppear = clamp((progress - 0.54) / 0.12)
 
   const headingClass =
