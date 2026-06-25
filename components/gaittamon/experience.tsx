@@ -52,14 +52,23 @@ export function Experience() {
   const progressRef = useRef(0)
   const [ready, setReady] = useState(false)
   const [idle, setIdle] = useState(false)
+  const idleRef = useRef(false)
 
   // After a few seconds of no interaction, reveal + bob the scroll hint.
   useEffect(() => {
     let timer: number
     const reset = () => {
-      setIdle(false)
+      // Only flip state when it actually changes — Lenis fires scroll on every
+      // frame, so an unguarded setState here causes a render storm.
+      if (idleRef.current) {
+        idleRef.current = false
+        setIdle(false)
+      }
       window.clearTimeout(timer)
-      timer = window.setTimeout(() => setIdle(true), 3000)
+      timer = window.setTimeout(() => {
+        idleRef.current = true
+        setIdle(true)
+      }, 3000)
     }
     const events = [
       "scroll",
@@ -90,7 +99,9 @@ export function Experience() {
     const denom = TIMELINE_SCREENS * window.innerHeight || 1
     const next = clamp(scroll / denom)
     progressRef.current = next
-    setProgress(next)
+    // Only re-render the React overlays when progress moves meaningfully; the
+    // 3D scene reads progressRef directly every frame regardless.
+    setProgress((prev) => (Math.abs(prev - next) > 0.002 ? next : prev))
   })
 
   // Hero copy fades out as the letter split begins (guide Step 3 windows).
@@ -99,6 +110,8 @@ export function Experience() {
   const fusion = anchor(progress, 0.19, 0.25, 0.31, 0.37)
   // Section 2 — Interstellar + Scouter (p ∈ [0.40, 0.63]).
   const anatomy = anchor(progress, 0.42, 0.5, 0.6, 0.66)
+  // Section 3 — Shatter / Fusion Core (p ∈ [0.72, 0.85]).
+  const evolution = anchor(progress, 0.73, 0.78, 0.83, 0.87)
 
   // Scouter sequence driver — auto-triggers late in the interstellar hold.
   const anatomyAppear = clamp((progress - 0.54) / 0.12)
@@ -201,6 +214,26 @@ export function Experience() {
             <p className={bodyClass}>
               Every element matters. From the Exalted status to the inline stat
               bars, mastery of Gaittamon requires perfect synergy.
+            </p>
+          </div>
+        </div>
+
+        {/* 03 Evolution — centered above the shatter as the card breaks apart
+            and the fusion core emerges. */}
+        <div className="absolute inset-0 flex flex-col items-center justify-end px-6 pb-[16vh] text-center">
+          <div
+            style={{
+              opacity: evolution.opacity,
+              transform: `translateY(${evolution.ty}px)`,
+            }}
+          >
+            <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-gold">
+              03 — Evolution
+            </p>
+            <h2 className={headingClass}>Shatter the Limits.</h2>
+            <p className={`${bodyClass} mx-auto max-w-md`}>
+              Break your creatures down to their core and forge the apex fusion.
+              From fracture to perfection, the cycle never ends.
             </p>
           </div>
         </div>

@@ -124,14 +124,14 @@ export function ScouterUi({
       {corners.map((c) => (
         <div
           key={c.id}
-          className={`absolute ${c.borderH} border-cyan-glow/60`}
+          className={`absolute ${c.borderH} border-[#ffd700]`}
           style={{ ...c.outer, ...c.styleH, opacity: dotsO }}
         />
       ))}
 
       {/* Connector lines — SVG so we can do the draw animation */}
       <svg
-        className="absolute inset-0 h-full w-full text-cyan-glow"
+        className="absolute inset-0 h-full w-full text-[#ffd700]"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         fill="none"
@@ -165,10 +165,10 @@ export function ScouterUi({
         >
           <span className="relative flex h-3 w-3 items-center justify-center">
             <span
-              className="absolute inline-flex h-full w-full rounded-full bg-cyan-glow/50"
+              className="absolute inline-flex h-full w-full rounded-full bg-[#ffd700]/50"
               style={{ animation: "scout-pulse 1.6s ease-in-out infinite" }}
             />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-glow shadow-glow-cyan" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#ffd700]" />
           </span>
         </div>
       ))}
@@ -194,14 +194,14 @@ export function ScouterUi({
           >
             <div className="relative">
               <div
-                className="absolute inset-0 rounded-sm border border-cyan-glow/60 bg-[#04141a]/80 shadow-glow-cyan"
+                className="absolute inset-0 rounded-sm border border-[#ffd700]/60 bg-[#0a0814]/80"
                 style={{
                   visibility: boxDraw > 0.001 ? "visible" : "hidden",
                   ...scaleStyle,
                 }}
               />
               <span
-                className="relative block whitespace-nowrap px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-glow sm:text-xs"
+                className="relative block whitespace-nowrap px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white sm:text-xs"
                 style={{ opacity: textO }}
               >
                 {p.text}

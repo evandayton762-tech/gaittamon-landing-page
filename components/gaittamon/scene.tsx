@@ -7,6 +7,10 @@ import * as THREE from "three"
 import { CardMesh } from "./card-mesh"
 import { Title3D } from "./title-3d"
 import { HeroJunniElements } from "./hero-junni-elements"
+import { LayeredTextSection } from "./layered-text-section"
+import { InterstellarSection } from "./interstellar-section"
+import { FusionSection } from "./fusion-section"
+import { FogClouds } from "./fog-clouds"
 
 const damp = THREE.MathUtils.damp
 
@@ -61,6 +65,10 @@ export function Scene({
         <Suspense fallback={null}>
           <SweepLight progressRef={progressRef} />
           <HeroJunniElements progressRef={progressRef} />
+          <LayeredTextSection progressRef={progressRef} />
+          <InterstellarSection progressRef={progressRef} />
+          <FogClouds progressRef={progressRef} />
+          <FusionSection progressRef={progressRef} />
           <CardMesh progressRef={progressRef} />
           <Title3D progressRef={progressRef} />
           <Environment preset="night" />
