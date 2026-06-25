@@ -251,5 +251,3 @@ export function InterstellarSection({
     </group>
   )
 }
-
-useGLTF.preload("/junni/section_2.glb")

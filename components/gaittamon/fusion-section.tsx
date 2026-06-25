@@ -80,7 +80,7 @@ function ShatterCard({ progressRef }: { progressRef: MutableRefObject<number> })
   useFrame(() => {
     if (!group.current) return
     const p = progressRef.current
-    const fit = clamp(viewport.width / 3.6, 0.5, 1)
+    const fit = THREE.MathUtils.clamp(viewport.width / 3.6, 0.5, 1)
     const baseScale = 0.72 * fit
     group.current.scale.setScalar(baseScale)
 

@@ -1,10 +1,10 @@
 "use client"
 
-import { Suspense, useRef, type MutableRefObject } from "react"
+import { Suspense, useEffect, useMemo, useRef, type MutableRefObject } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
 import { Environment } from "@react-three/drei"
-import { EffectComposer, Bloom, Noise, Vignette } from "@react-three/postprocessing"
-import { BlendFunction } from "postprocessing"
+import { EffectComposer, Noise, Vignette } from "@react-three/postprocessing"
+import { BlendFunction, BloomEffect } from "postprocessing"
 import * as THREE from "three"
 import { CardMesh } from "./card-mesh"
 import { Title3D } from "./title-3d"
@@ -96,27 +96,57 @@ function CursorLight({ progressRef }: { progressRef: MutableRefObject<number> })
   return <directionalLight ref={light} color="#ffe6a8" intensity={0} />
 }
 
-// Drives Bloom intensity per section: ~0 hero, ~1.0 Section 2, ~1.5 Section 3.
-function SectionBloom({ progressRef }: { progressRef: MutableRefObject<number> }) {
-  const ref = useRef<{ intensity: number }>(null)
+// Bloom built with the `primitive` pattern (per the official docs) instead of
+// the <Bloom> JSX wrapper. The wrapper component is not a forwardRef in this
+// version, so in React 19 a passed `ref` becomes a normal prop that the
+// composer tries to JSON.stringify — throwing a circular-structure error.
+// Constructing the BloomEffect directly and mounting it as a <primitive>
+// avoids that serialization entirely.
+function CustomBloom({
+  effectRef,
+}: {
+  effectRef: MutableRefObject<BloomEffect | null>
+}) {
+  const effect = useMemo(
+    () =>
+      new BloomEffect({
+        intensity: 0,
+        luminanceThreshold: 0.5,
+        luminanceSmoothing: 0.3,
+        mipmapBlur: true,
+      }),
+    [],
+  )
+  useEffect(() => {
+    effectRef.current = effect
+    return () => {
+      effectRef.current = null
+      effect.dispose()
+    }
+  }, [effect, effectRef])
+  return <primitive object={effect} dispose={null} />
+}
+
+// Drives Bloom intensity per section by mutating the effect instance through a
+// ref. Lives OUTSIDE <EffectComposer> so it never participates in composer
+// child introspection.
+function BloomController({
+  effectRef,
+  progressRef,
+}: {
+  effectRef: MutableRefObject<BloomEffect | null>
+  progressRef: MutableRefObject<number>
+}) {
   useFrame((_, delta) => {
-    if (!ref.current) return
+    if (!effectRef.current) return
     const p = progressRef.current
     // ramp 0 -> 1.0 across Section 2, then 1.0 -> 1.5 across Section 3
     const sec2 = clamp((p - 0.4) / 0.12)
     const sec3 = clamp((p - 0.62) / 0.1)
     const target = sec2 * 1.0 + sec3 * 0.5
-    ref.current.intensity = damp(ref.current.intensity, target, 3, delta)
+    effectRef.current.intensity = damp(effectRef.current.intensity, target, 3, delta)
   })
-  return (
-    <Bloom
-      ref={ref as never}
-      intensity={0}
-      luminanceThreshold={0.5}
-      luminanceSmoothing={0.3}
-      mipmapBlur
-    />
-  )
+  return null
 }
 
 export function Scene({
@@ -124,6 +154,7 @@ export function Scene({
 }: {
   progressRef: MutableRefObject<number>
 }) {
+  const bloomRef = useRef<BloomEffect | null>(null)
   return (
     <div className="fixed inset-0 h-screen w-full">
       <Canvas
@@ -144,6 +175,7 @@ export function Scene({
           <MovingLights />
           <SweepLight progressRef={progressRef} />
           <CursorLight progressRef={progressRef} />
+          <BloomController effectRef={bloomRef} progressRef={progressRef} />
           <HeroJunniElements progressRef={progressRef} />
           <LayeredTextSection progressRef={progressRef} />
           <InterstellarSection progressRef={progressRef} />
@@ -153,7 +185,7 @@ export function Scene({
           <Title3D progressRef={progressRef} />
           <Environment preset="night" />
           <EffectComposer>
-            <SectionBloom progressRef={progressRef} />
+            <CustomBloom effectRef={bloomRef} />
             <Noise premultiply blendFunction={BlendFunction.SOFT_LIGHT} opacity={0.12} />
             <Vignette eskil={false} offset={0.3} darkness={0.7} />
           </EffectComposer>
