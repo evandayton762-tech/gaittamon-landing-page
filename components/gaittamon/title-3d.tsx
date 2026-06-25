@@ -8,7 +8,7 @@ import * as THREE from "three"
 const FONT_URL = "/fonts/helvetiker_bold.typeface.json"
 const TEXT = "GAITTAMON"
 const TITLE_Z = 1.6 // float in front of the card back
-const LETTER_GAP = 0.1
+const LETTER_GAP = 0.18 // wider inter-letter spacing
 
 const damp = THREE.MathUtils.damp
 
@@ -106,7 +106,7 @@ export function Title3D({
       const firstX = basePos.current[0] ?? 0
       const lastX = basePos.current[basePos.current.length - 1] ?? 0
       const span = Math.abs(lastX - firstX) + 1.2
-      const target = Math.min(1, (visW * 0.62) / span)
+      const target = Math.min(1.25, (visW * 0.8) / span)
       fitScale.current = damp(fitScale.current, target, 6, delta)
     }
 
@@ -146,9 +146,11 @@ export function Title3D({
         splitZ = 1.0 * sp
       }
 
-      const floatY = Math.sin(t * 1.1 + i * 0.6) * 0.03
+      // More pronounced idle hover that continues under the cursor; staggered
+      // phase per letter so they don't bob in unison.
+      const floatY = Math.sin(t * 1.25 + i * 0.7) * 0.1
       w.position.x = damp(w.position.x, baseX + splitX, 8, delta)
-      w.position.y = damp(w.position.y, floatY + react * 0.12 + splitY, 8, delta)
+      w.position.y = damp(w.position.y, floatY + react * 0.18 + splitY, 8, delta)
       w.position.z = damp(w.position.z, react * 0.7 + splitZ, 8, delta)
       w.rotation.y = damp(w.rotation.y, react * Math.sign(dx) * -0.35, 8, delta)
       w.rotation.x = damp(w.rotation.x, react * Math.sign(dy) * 0.3, 8, delta)
@@ -179,8 +181,8 @@ export function Title3D({
               meshes.current[i] = el as unknown as THREE.Mesh
             }}
             font={FONT_URL}
-            size={0.62}
-            height={0.16}
+            size={0.78}
+            height={0.2}
             curveSegments={6}
             bevelEnabled
             bevelThickness={0.02}

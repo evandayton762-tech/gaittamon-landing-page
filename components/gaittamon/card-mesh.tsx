@@ -21,6 +21,7 @@ function easeInOut(t: number) {
 const CARD_W = 2.5
 const CARD_H = 3.5
 const DEPTH = 0.02 // thin TCG-style card body
+const SHATTER_P = 0.66 // progress where the card hard-cuts into shards
 
 // A rounded-rectangle shape reused for both the thin body and the faces.
 function roundedRectShape(w: number, h: number, r: number) {
@@ -79,8 +80,6 @@ export function CardMesh({
   const frontMat = useRef<THREE.MeshStandardMaterial>(null)
   const backMat = useRef<THREE.MeshStandardMaterial>(null)
   const bodyMat = useRef<THREE.MeshStandardMaterial>(null)
-  // Continuous Y spin accumulator used during the Section 2 interstellar hold.
-  const autoRot = useRef(0)
 
   // Pointer interaction state.
   const hovered = useRef(false)
@@ -146,23 +145,28 @@ export function CardMesh({
     // hold on the right -> return to center for the Section 2 interstellar
     // hold (continuous Y auto-rotate) -> fade out as the Section 3 shatter
     // takes over.
-    const sFlip = easeInOut(stage(p, 0.08, 0.2)) // hero -> right + flip to front
-    const sToCenter = easeInOut(stage(p, 0.37, 0.42)) // right -> center for Sec 2
-    const inSec2 = p >= 0.42 && p < 0.66
-    const sFade = stage(p, 0.63, 0.69) // dissolve as the shatter begins
-
-    const rightX = vw * 0.2
+    const sFlip = easeInOut(stage(p, 0.08, 0.2)) // hero -> flip to front (stays centered)
+    const inSec2 = p >= 0.42 && p < SHATTER_P
+    // The card hard-cuts to invisible the instant the shatter triggers — the
+    // shard fragments ARE the broken card, so there is no fade overlap.
+    const shattered = p >= SHATTER_P
 
     // --- Pointer tilt: subtle on hover, stronger while pressed. ---
     const strength = pressed.current ? 0.4 : hovered.current ? 0.16 : 0
 
     if (inSec2) {
-      // Centered slow auto-rotate on Y with a slight forward tilt.
-      autoRot.current += delta * 0.35
-      group.current.rotation.y = autoRot.current + pointer.current.x * strength
+      // FIXED orientation, front-facing — bounded oscillation that always
+      // returns to center (never accumulates) so the orientation entering the
+      // Section 3 shatter is known and stable.
+      group.current.rotation.y = damp(
+        group.current.rotation.y,
+        Math.sin(t * 0.3) * 0.05 + pointer.current.x * strength,
+        6,
+        delta,
+      )
       group.current.rotation.x = damp(
         group.current.rotation.x,
-        0.15 - pointer.current.y * strength,
+        0.1 - pointer.current.y * strength,
         6,
         delta,
       )
@@ -171,38 +175,30 @@ export function CardMesh({
       let rotY = lerp(PI, PI * 2, sFlip) // PI (back) -> 2*PI (front)
       rotY += Math.sin(t * 0.5) * 0.04 * (1 - sFlip)
       rotY += pointer.current.x * strength
-      // Seed the auto-rotate accumulator so Section 2 picks up seamlessly.
-      autoRot.current = rotY
       let rotX = -0.02 + Math.sin(t * 0.4) * 0.02
       rotX += -pointer.current.y * strength
-      const rotZ = 0
       group.current.rotation.y = damp(group.current.rotation.y, rotY, 6, delta)
       group.current.rotation.x = damp(group.current.rotation.x, rotX, 6, delta)
-      group.current.rotation.z = damp(group.current.rotation.z, rotZ, 6, delta)
+      group.current.rotation.z = damp(group.current.rotation.z, 0, 6, delta)
     }
 
-    // --- Position: center -> right (Section 1) -> back to center (Section 2). ---
-    let x = lerp(0, rightX, sFlip)
-    x = lerp(x, 0, sToCenter)
+    // --- Position: stays centered the entire timeline. ---
     const floatY = Math.sin(t * 0.9) * 0.05
-    const y = floatY
-
-    group.current.position.x = damp(group.current.position.x, x, 5, delta)
-    group.current.position.y = damp(group.current.position.y, y, 5, delta)
+    group.current.position.x = damp(group.current.position.x, 0, 5, delta)
+    group.current.position.y = damp(group.current.position.y, floatY, 5, delta)
     group.current.position.z = damp(group.current.position.z, 0, 7, delta)
 
-    // --- Scale: slightly smaller on the right, full size when centered. ---
-    let scl = lerp(baseScale, baseScale * 0.85, sFlip)
-    scl = lerp(scl, baseScale, sToCenter)
+    // --- Scale: full size centered, slightly smaller as it flips in. ---
+    const scl = lerp(baseScale, baseScale * 0.92, sFlip)
     const s = damp(group.current.scale.x, scl, 7, delta)
     group.current.scale.setScalar(s)
 
-    // The solid card dissolves as the Section 3 shatter fragments take over.
-    const targetOpacity = 1 - sFade
+    // Solid card is fully opaque until the shatter, then instantly gone.
+    const targetOpacity = shattered ? 0 : 1
     for (const m of [frontMat.current, backMat.current, bodyMat.current]) {
-      if (m) m.opacity = damp(m.opacity, targetOpacity, 8, delta)
+      if (m) m.opacity = targetOpacity
     }
-    group.current.visible = targetOpacity > 0.01
+    group.current.visible = !shattered
   })
 
   return (

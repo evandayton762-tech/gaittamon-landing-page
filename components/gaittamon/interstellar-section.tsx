@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, type MutableRefObject } from "react"
 import { useFrame, useThree } from "@react-three/fiber"
-import { useGLTF, useCubeTexture, useTexture } from "@react-three/drei"
+import { useTexture } from "@react-three/drei"
 import * as THREE from "three"
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v))
@@ -114,7 +114,8 @@ function TextRing({
 
   useFrame((state, delta) => {
     if (!matRef.current) return
-    matRef.current.uniforms.time.value = state.clock.elapsedTime * 6
+    // Slowed clock so the streaming text rings drift gently, not race past.
+    matRef.current.uniforms.time.value = state.clock.elapsedTime * 0.3
     const target = visRef.current
     matRef.current.uniforms.uVisibility.value = damp(
       matRef.current.uniforms.uVisibility.value,
@@ -219,73 +220,6 @@ function Grid({ visRef }: { visRef: MutableRefObject<number> }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Glass shapes from section_2.glb 'Transparents' with the Section 2 cubemap.
-// ---------------------------------------------------------------------------
-function GlassShapes({ visRef }: { visRef: MutableRefObject<number> }) {
-  const { scene } = useGLTF("/junni/section_2.glb")
-  const envMap = useCubeTexture(
-    ["px.png", "nx.png", "py.png", "ny.png", "pz.png", "nz.png"],
-    { path: "/junni/envmap/sec2/" },
-  )
-  const group = useRef<THREE.Group>(null)
-
-  const shapes = useMemo(() => {
-    const node = scene.getObjectByName("Transparents")
-    const out: { geometry: THREE.BufferGeometry; matrix: THREE.Matrix4 }[] = []
-    node?.updateWorldMatrix(true, true)
-    node?.traverse((o) => {
-      const m = o as THREE.Mesh
-      if (m.isMesh) {
-        m.updateWorldMatrix(true, false)
-        out.push({ geometry: m.geometry, matrix: m.matrixWorld.clone() })
-      }
-    })
-    return out
-  }, [scene])
-
-  const material = useMemo(() => {
-    return new THREE.MeshPhysicalMaterial({
-      transmission: 1,
-      thickness: 0.45,
-      roughness: 0.06,
-      ior: 1.5,
-      metalness: 0,
-      envMap,
-      envMapIntensity: 1.2,
-      transparent: true,
-      color: new THREE.Color("#dfe9ff"),
-    })
-  }, [envMap])
-
-  useFrame((_, delta) => {
-    if (!group.current) return
-    const meshes = group.current.children as THREE.Mesh[]
-    if (meshes[0]) {
-      meshes[0].rotation.y += 0.0028
-      meshes[0].rotation.z += 0.0009
-    }
-    if (meshes[1]) {
-      meshes[1].rotation.x += 0.0018
-      meshes[1].rotation.y += 0.003
-    }
-    if (meshes[2]) meshes[2].rotation.x += 0.004
-    const v = visRef.current
-    const target = v > 0.5 ? 1 : 0
-    const s = damp(group.current.scale.x, target, 4, delta)
-    group.current.scale.setScalar(s)
-    group.current.visible = s > 0.02
-  })
-
-  return (
-    <group ref={group} scale={0}>
-      {shapes.map((s, i) => (
-        <mesh key={i} geometry={s.geometry} material={material} position={[(i - 1) * 2.6, 0.4, -1.5]} />
-      ))}
-    </group>
-  )
-}
-
 export function InterstellarSection({
   progressRef,
 }: {
@@ -302,7 +236,8 @@ export function InterstellarSection({
     const exit = clamp((p - 0.63) / 0.08)
     visRef.current = enter * (1 - exit)
     if (ringGroup.current) {
-      ringGroup.current.rotation.y += delta * 0.35
+      // Gentle, slow orbit (was too fast).
+      ringGroup.current.rotation.y += delta * 0.08
       ringGroup.current.rotation.x = 0.15
     }
   })
@@ -313,9 +248,6 @@ export function InterstellarSection({
         <TextRing visRef={visRef} tex={ringTex} />
         <Grid visRef={visRef} />
       </group>
-      <GlassShapes visRef={visRef} />
     </group>
   )
 }
-
-useGLTF.preload("/junni/section_2.glb")
