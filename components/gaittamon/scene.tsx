@@ -14,6 +14,7 @@ import { InterstellarSection } from "./interstellar-section"
 import { FusionSection } from "./fusion-section"
 import { FogClouds } from "./fog-clouds"
 import { BackgroundSphere } from "./background-sphere"
+import { TvRoomSection } from "./tv-room-section"
 
 const damp = THREE.MathUtils.damp
 const clamp = (v: number) => Math.min(1, Math.max(0, v))
@@ -46,7 +47,7 @@ function SweepLight({ progressRef }: { progressRef: MutableRefObject<number> }) 
     light.current.position.y = Math.cos(t * 0.8) * 1.5
     light.current.intensity = 30 + sweep * 90
   })
-  return <pointLight ref={light} color="#5ee9ff" position={[2, 1, 3]} distance={14} />
+  return <pointLight ref={light} color="#e8c060" position={[2, 1, 3]} distance={14} />
 }
 
 // Three colored point lights orbiting on Lissajous paths — they keep the hero
@@ -71,7 +72,7 @@ function MovingLights() {
     <>
       <pointLight ref={a} color="#c79a3a" intensity={26} distance={16} />
       <pointLight ref={b} color="#8a4aff" intensity={22} distance={16} />
-      <pointLight ref={c} color="#5ee9ff" intensity={18} distance={16} />
+      <pointLight ref={c} color="#e8a840" intensity={18} distance={16} />
     </>
   )
 }
@@ -140,11 +141,12 @@ function BloomController({
   useFrame((_, delta) => {
     if (!effectRef.current) return
     const p = progressRef.current
-    // ramp 0 -> 1.0 across Section 2, then 1.0 -> 1.5 across Section 3
+    // ramp 0 -> 1.0 across Section 2, then 1.0 -> 1.5 across Section 3/TV
     const sec2 = clamp((p - 0.4) / 0.12)
     const sec3 = clamp((p - 0.62) / 0.1)
-    const target = sec2 * 1.0 + sec3 * 0.5
-    effectRef.current.intensity = damp(effectRef.current.intensity, target, 3, delta)
+    const sec4 = clamp((p - 0.88) / 0.08)
+    const target = sec2 * 1.0 + sec3 * 0.5 + sec4 * 0.5   // peaks at 2.0 in TV
+    effectRef.current.intensity = damp(effectRef.current.intensity, Math.min(target, 1.8), 3, delta)
   })
   return null
 }
@@ -164,7 +166,7 @@ export function Scene({
       >
         <color attach="background" args={["#050505"]} />
 
-        <ambientLight intensity={0.35} color="#6a4aff" />
+        <ambientLight intensity={0.35} color="#4a3aaa" />
         <directionalLight position={[-4, 3, 5]} intensity={1.2} color="#b48cff" />
         <pointLight position={[0, -3, 4]} intensity={20} color="#c79a3a" distance={16} />
 
@@ -181,6 +183,7 @@ export function Scene({
           <InterstellarSection progressRef={progressRef} />
           <FogClouds progressRef={progressRef} />
           <FusionSection progressRef={progressRef} />
+          <TvRoomSection progressRef={progressRef} />
           <CardMesh progressRef={progressRef} />
           <Title3D progressRef={progressRef} />
           <Environment preset="night" />

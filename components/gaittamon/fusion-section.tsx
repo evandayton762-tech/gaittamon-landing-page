@@ -412,7 +412,7 @@ function Sec3Particle({ progressRef }: { progressRef: MutableRefObject<number> }
         }
       `,
     })
-  }, [tex])
+  }, [spriteTex])
 
   useFrame((state, delta) => {
     if (!matRef.current) return
