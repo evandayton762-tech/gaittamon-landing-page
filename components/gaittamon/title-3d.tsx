@@ -8,7 +8,7 @@ import * as THREE from "three"
 const FONT_URL = "/fonts/helvetiker_bold.typeface.json"
 const TEXT = "GAITTAMON"
 const TITLE_Z = 1.6 // float in front of the card back
-const LETTER_GAP = 0.18 // wider inter-letter spacing
+const LETTER_GAP = 0.26 // wider inter-letter spacing
 
 const damp = THREE.MathUtils.damp
 
@@ -148,12 +148,12 @@ export function Title3D({
 
       // More pronounced idle hover that continues under the cursor; staggered
       // phase per letter so they don't bob in unison.
-      const floatY = Math.sin(t * 1.25 + i * 0.7) * 0.1
+      const floatY = Math.sin(t * 1.1 + i * 0.72) * 0.18
       w.position.x = damp(w.position.x, baseX + splitX, 8, delta)
-      w.position.y = damp(w.position.y, floatY + react * 0.18 + splitY, 8, delta)
-      w.position.z = damp(w.position.z, react * 0.7 + splitZ, 8, delta)
-      w.rotation.y = damp(w.rotation.y, react * Math.sign(dx) * -0.35, 8, delta)
-      w.rotation.x = damp(w.rotation.x, react * Math.sign(dy) * 0.3, 8, delta)
+      w.position.y = damp(w.position.y, floatY + react * 0.28 + splitY, 8, delta)
+      w.position.z = damp(w.position.z, react * 0.9 + splitZ, 8, delta)
+      w.rotation.y = damp(w.rotation.y, react * Math.sign(dx) * -0.45, 8, delta)
+      w.rotation.x = damp(w.rotation.x, react * Math.sign(dy) * 0.38, 8, delta)
     })
 
     // --- Push the fade onto every letter's material ---
@@ -181,21 +181,21 @@ export function Title3D({
               meshes.current[i] = el as unknown as THREE.Mesh
             }}
             font={FONT_URL}
-            size={0.78}
-            height={0.2}
-            curveSegments={6}
+            size={0.96}
+            height={0.24}
+            curveSegments={8}
             bevelEnabled
-            bevelThickness={0.02}
-            bevelSize={0.014}
-            bevelSegments={3}
+            bevelThickness={0.025}
+            bevelSize={0.016}
+            bevelSegments={4}
           >
             {char}
             <meshStandardMaterial
-              color="#eafcff"
-              emissive="#1fb6e6"
-              emissiveIntensity={0.55}
-              metalness={0.35}
-              roughness={0.25}
+              color="#ffe8a0"
+              emissive="#7a4800"
+              emissiveIntensity={0.6}
+              metalness={0.45}
+              roughness={0.22}
               transparent
             />
           </Text3D>
