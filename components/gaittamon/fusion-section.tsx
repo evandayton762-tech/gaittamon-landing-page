@@ -60,14 +60,14 @@ function ShatterCard({ progressRef }: { progressRef: MutableRefObject<number> })
           0,
         )
         const dir = new THREE.Vector3(
-          home.x + (Math.random() - 0.5) * 1.2,
-          home.y + (Math.random() - 0.5) * 1.2,
-          (Math.random() - 0.5) * 4,
+          home.x + (Math.random() - 0.5) * 0.5,
+          home.y + (Math.random() - 0.5) * 0.5,
+          (Math.random() - 0.5) * 1.2,
         ).normalize()
         const spin = new THREE.Vector3(
-          (Math.random() - 0.5) * 6,
-          (Math.random() - 0.5) * 6,
-          (Math.random() - 0.5) * 6,
+          (Math.random() - 0.5) * 4,
+          (Math.random() - 0.5) * 4,
+          (Math.random() - 0.5) * 4,
         )
         list.push({ geometry: geo, home, dir, spin })
       }
@@ -95,11 +95,11 @@ function ShatterCard({ progressRef }: { progressRef: MutableRefObject<number> })
     for (let i = 0; i < meshes.length; i++) {
       const m = meshes[i]
       const f = fragments[i]
-      const dist = shatter * (3 + f.dir.length())
+      const dist = shatter * (0.8 + f.dir.length() * 0.6)
       m.position.set(
-        f.home.x + f.dir.x * dist * 2,
-        f.home.y + f.dir.y * dist * 2,
-        f.home.z + f.dir.z * dist * 2,
+        f.home.x + f.dir.x * dist * 1.8,
+        f.home.y + f.dir.y * dist * 1.8,
+        f.home.z + f.dir.z * dist * 1.8,
       )
       m.rotation.x = f.spin.x * shatter
       m.rotation.y = f.spin.y * shatter
@@ -252,11 +252,69 @@ function BackText({ progressRef }: { progressRef: MutableRefObject<number> }) {
 // Sec3Particle — instanced shard sprites swirling above the sphere, sampling a
 // noise texture (additive, HSV cycle) so they read as bright angular shards.
 // ---------------------------------------------------------------------------
+/** Build a 6-cell horizontal sprite sheet on a canvas: soft dot, plus, triangle,
+ *  diamond, ring, spark — each 64×64 cell, final 384×64 texture. */
+function useParticleSpriteSheet() {
+  return useMemo(() => {
+    const cellSize = 64
+    const cells = 6
+    const canvas = document.createElement("canvas")
+    canvas.width = cellSize * cells
+    canvas.height = cellSize
+    const ctx = canvas.getContext("2d")!
+    const drawCell = (idx: number, fn: (cx: number, cy: number, ctx: CanvasRenderingContext2D) => void) => {
+      const cx = idx * cellSize + cellSize / 2
+      const cy = cellSize / 2
+      ctx.save()
+      ctx.clearRect(idx * cellSize, 0, cellSize, cellSize)
+      fn(cx, cy, ctx)
+      ctx.restore()
+    }
+    // 0: soft dot
+    drawCell(0, (cx, cy, c) => {
+      const g = c.createRadialGradient(cx, cy, 0, cx, cy, 26)
+      g.addColorStop(0, "rgba(255,255,255,1)")
+      g.addColorStop(0.4, "rgba(255,255,255,0.7)")
+      g.addColorStop(1, "rgba(255,255,255,0)")
+      c.fillStyle = g; c.beginPath(); c.arc(cx, cy, 26, 0, Math.PI * 2); c.fill()
+    })
+    // 1: plus / cross
+    drawCell(1, (cx, cy, c) => {
+      c.fillStyle = "rgba(255,255,255,0.9)"
+      c.fillRect(cx - 3, cy - 18, 6, 36)
+      c.fillRect(cx - 18, cy - 3, 36, 6)
+    })
+    // 2: triangle
+    drawCell(2, (cx, cy, c) => {
+      c.fillStyle = "rgba(255,255,255,0.85)"
+      c.beginPath(); c.moveTo(cx, cy - 20); c.lineTo(cx + 18, cy + 14); c.lineTo(cx - 18, cy + 14); c.closePath(); c.fill()
+    })
+    // 3: diamond
+    drawCell(3, (cx, cy, c) => {
+      c.fillStyle = "rgba(255,255,255,0.85)"
+      c.beginPath(); c.moveTo(cx, cy - 22); c.lineTo(cx + 14, cy); c.lineTo(cx, cy + 22); c.lineTo(cx - 14, cy); c.closePath(); c.fill()
+    })
+    // 4: ring
+    drawCell(4, (cx, cy, c) => {
+      c.strokeStyle = "rgba(255,255,255,0.9)"; c.lineWidth = 4
+      c.beginPath(); c.arc(cx, cy, 18, 0, Math.PI * 2); c.stroke()
+    })
+    // 5: spark / star
+    drawCell(5, (cx, cy, c) => {
+      c.fillStyle = "rgba(255,255,255,0.9)"
+      for (let s = 0; s < 4; s++) {
+        c.save(); c.translate(cx, cy); c.rotate(s * Math.PI / 4)
+        c.fillRect(-2, -24, 4, 48); c.restore()
+      }
+    })
+    const tex = new THREE.CanvasTexture(canvas)
+    return tex
+  }, [])
+}
+
 function Sec3Particle({ progressRef }: { progressRef: MutableRefObject<number> }) {
   const matRef = useRef<THREE.ShaderMaterial>(null)
-  const tex = useTexture("/junni/textures/noise.png")
-  tex.wrapS = THREE.RepeatWrapping
-  tex.wrapT = THREE.RepeatWrapping
+  const spriteTex = useParticleSpriteSheet()
 
   const geometry = useMemo(() => {
     const plane = new THREE.PlaneGeometry(0.2, 0.2)
@@ -290,7 +348,7 @@ function Sec3Particle({ progressRef }: { progressRef: MutableRefObject<number> }
         time: { value: 0 },
         range: { value: new THREE.Vector3(7, 8, 7) },
         uVisibility: { value: 0 },
-        tex: { value: tex },
+        tex: { value: spriteTex },
       },
       vertexShader: /* glsl */ `
         attribute vec3 offsetPos;
@@ -302,8 +360,16 @@ function Sec3Particle({ progressRef }: { progressRef: MutableRefObject<number> }
         varying vec2 vNum;
         #define linearstep(e0,e1,x) min(max(((x)-(e0))/((e1)-(e0)),0.0),1.0)
         mat2 rotate2d(float a){ return mat2(cos(a),-sin(a),sin(a),cos(a)); }
+        vec2 spriteUVSelector(vec2 uv, vec2 tile, float frames, float t){
+          float f = floor(frames * mod(t, 1.0));
+          uv.x += mod(f, tile.x);
+          uv.y -= floor(f / tile.x);
+          uv.y -= 1.0; uv /= tile; uv.y += 1.0;
+          return uv;
+        }
         void main(){
           vec3 oPos = offsetPos;
+          vec3 hrange = range / 2.0;
           float center = linearstep(5.0, 1.0, length(oPos.xz - range.xz / 2.0));
           oPos.y += time * center;
           oPos = mod(oPos, range);
@@ -311,14 +377,13 @@ function Sec3Particle({ progressRef }: { progressRef: MutableRefObject<number> }
           oPos.xz *= rotate2d(time * center);
           oPos.xz *= 1.0 + (1.0 - uVisibility);
           vec3 pos = position;
-          vec3 hrange = range / 2.0;
           pos *= smoothstep(hrange.y, hrange.y - 0.5, abs(oPos.y));
           pos *= num.y;
           pos *= 1.0 + exp(-mod(time * 1.0 + num.y * 2.0, 1.0) * 7.0) * 3.0 * num.y;
           pos.xy *= rotate2d(time * num.y);
           pos += oPos;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-          vUv = uv;
+          vUv = spriteUVSelector(uv, vec2(6.0, 1.0), 6.0, num.x / 4.0);
           vNum = num;
         }
       `,
@@ -327,22 +392,27 @@ function Sec3Particle({ progressRef }: { progressRef: MutableRefObject<number> }
         uniform sampler2D tex;
         varying vec2 vUv;
         varying vec2 vNum;
-        vec3 hsv2rgb(vec3 c){
-          vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-          vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-          return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-        }
+        vec3 rgb2hsv(vec3 c){ vec4 K=vec4(0.0,-1.0/3.0,2.0/3.0,-1.0);
+          vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));
+          vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));
+          float d=q.x-min(q.w,q.y); float e=1.0e-10;
+          return vec3(abs(q.z+(q.w-q.y)/(6.0*d+e)), d/(q.x+e), q.x); }
+        vec3 hsv2rgb(vec3 c){ vec4 K=vec4(1.0,2.0/3.0,1.0/3.0,3.0);
+          vec3 p=abs(fract(c.xxx+K.xyz)*6.0-K.www);
+          return c.z*mix(K.xxx, clamp(p-K.xxx,0.0,1.0), c.y); }
         void main(){
-          // sample the noise texture as an angular shard mask
-          float a = texture2D(tex, vUv * 0.5 + vNum.y * 0.5).r;
-          a = smoothstep(0.45, 0.65, a);
-          if (a < 0.05) discard;
-          vec3 hsv = vec3(fract(time * 0.1 + vNum.y * 0.4), 0.85, 1.0);
-          gl_FragColor = vec4(hsv2rgb(hsv), a);
+          vec4 color = texture2D(tex, vUv);
+          vec3 hsv = rgb2hsv(color.xyz);
+          // constrain hue to gold(0.12)..purple(0.78) — NEVER cyan/green
+          hsv.x = mix(0.12, 0.78, fract(time*0.05 + vNum.y*0.5));
+          hsv.y = 0.7;
+          color.xyz = hsv2rgb(hsv);
+          if (color.w < 0.05) discard;
+          gl_FragColor = vec4(color);
         }
       `,
     })
-  }, [tex])
+  }, [spriteTex])
 
   useFrame((state, delta) => {
     if (!matRef.current) return

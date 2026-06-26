@@ -273,8 +273,10 @@ export function LayeredTextSection({
     placeWord(infiniteRef, 0.55, 0.95, 0.12)
     placeWord(endlessRef, -0.5, 0.8, 0.18)
 
-    // Glass shapes: rotate + spring scale entrance staggered; forced off on exit.
+    // Glass shapes: rotate + spring scale entrance staggered + pointer-follow nudge.
     const glassDelays = [0.15, 0.25, 0.32]
+    const px = state.pointer.x
+    const py = state.pointer.y
     glassRefs.current.forEach((m, i) => {
       if (!m) return
       const tin = easeInOutCubic(clamp((sTypo - glassDelays[i]) / 0.4))
@@ -282,6 +284,7 @@ export function LayeredTextSection({
       const visible = groupOpacity > 0.005 && sc > 0.005
       m.visible = visible
       m.scale.setScalar(sc * (glassMeshes[i]?.scl || 1))
+      // Idle self-rotation (per-shape, different axes)
       if (i === 0) {
         m.rotation.y += 0.0028
         m.rotation.z += 0.0009
@@ -291,6 +294,9 @@ export function LayeredTextSection({
       } else {
         m.rotation.x += 0.004
       }
+      // Damped pointer nudge — shape tilts toward cursor
+      m.rotation.y = damp(m.rotation.y, m.rotation.y + px * 0.18, 5, delta)
+      m.rotation.x = damp(m.rotation.x, m.rotation.x + (-py) * 0.12, 5, delta)
     })
   })
 

@@ -8,9 +8,9 @@ import { CtaButton } from "./cta-button"
 import { TopNav } from "./top-nav"
 
 // Number of viewport-heights of scroll the card timeline plays across.
-const TIMELINE_SCREENS = 6
+const TIMELINE_SCREENS = 8
 // Total spacer height driving the fixed-scene timeline.
-const SPACER_VH = 540
+const SPACER_VH = 720
 
 const Scene = dynamic(() => import("./scene").then((m) => m.Scene), {
   ssr: false,
@@ -111,8 +111,13 @@ export function Experience() {
   // Section 3 — Shatter / Fusion Core (p ∈ [0.72, 0.85]).
   const evolution = anchor(progress, 0.73, 0.78, 0.83, 0.87)
 
-  // Scouter sequence driver — auto-triggers late in the interstellar hold.
-  const anatomyAppear = clamp((progress - 0.54) / 0.12)
+  // Scouter sequence driver — drives a full in->hold->out cycle WITHIN the
+  // locked anatomy hold window (p ∈ [0.50, 0.62]) so it completes before
+  // the next section triggers, never requiring extra scroll.
+  // Phase: 0.50-0.55 = draw in, 0.55-0.60 = hold, 0.60-0.65 = retract.
+  const rawAppear = clamp((progress - 0.50) / 0.05) // 0->1 draw in
+  const rawRetract = clamp((progress - 0.60) / 0.05) // 0->1 retract
+  const anatomyAppear = rawAppear * (1 - rawRetract)
 
   const headingClass =
     "text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl [text-shadow:0_2px_22px_rgba(0,0,0,0.9)]"
@@ -140,7 +145,7 @@ export function Experience() {
           className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center"
           style={{ opacity: heroOpacity }}
         >
-          <p className="mb-5 font-mono text-xs uppercase tracking-[0.5em] text-cyan-glow/80">
+          <p className="mb-5 font-mono text-xs uppercase tracking-[0.5em] text-[#e6c074]/80">
             The Fusion Trading Card Game
           </p>
           {/* The wordmark is rendered as 3D geometry inside the canvas
@@ -163,12 +168,12 @@ export function Experience() {
               animation: idle ? "scroll-bob 1.8s ease-in-out infinite" : "none",
             }}
           >
-            <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.4em] text-cyan-glow/70">
+            <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.4em] text-[#e6c074]/70">
               Scroll to Fuse
             </p>
-            <div className="mx-auto flex h-9 w-5 items-start justify-center rounded-full border border-cyan-glow/40 p-1">
+            <div className="mx-auto flex h-9 w-5 items-start justify-center rounded-full border border-[#e6c074]/40 p-1">
               <span
-                className="h-2 w-1 rounded-full bg-cyan-glow"
+                className="h-2 w-1 rounded-full bg-[#e6c074]"
                 style={{ animation: "scout-pulse 1.8s ease-in-out infinite" }}
               />
             </div>
@@ -178,25 +183,7 @@ export function Experience() {
         {/* Section 1 (Layered Typography) renders its FUSION wordmark inside the
             3D scene, so no HTML overlay copy is needed here. */}
 
-        {/* 02 Anatomy — text RIGHT (pulled toward middle), card on the left */}
-        <div className="absolute inset-0 flex items-center justify-end px-8 sm:px-20 lg:pr-[12vw]">
-          <div
-            className="max-w-sm border-r-2 border-r-cyan-glow pr-6 text-right"
-            style={{
-              opacity: anatomy.opacity,
-              transform: `translateY(${anatomy.ty}px)`,
-            }}
-          >
-            <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-cyan-glow">
-              02 — Anatomy
-            </p>
-            <h2 className={headingClass}>Master the Anatomy.</h2>
-            <p className={bodyClass}>
-              Every element matters. From the Exalted status to the inline stat
-              bars, mastery of Gaittamon requires perfect synergy.
-            </p>
-          </div>
-        </div>
+        {/* 02 Anatomy — scouter-only, no text overlay per spec S2-2 */}
 
         {/* 03 Evolution — centered above the shatter as the card breaks apart
             and the fusion core emerges. */}
@@ -207,7 +194,7 @@ export function Experience() {
               transform: `translateY(${evolution.ty}px)`,
             }}
           >
-            <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-gold">
+            <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-[#ffd700]">
               03 — Evolution
             </p>
             <h2 className={headingClass}>Shatter the Limits.</h2>
@@ -265,7 +252,7 @@ function GameplayFooter() {
           scrolling down to the video, not after. Fades up on scroll-in. */}
       <FadeUp>
         <div className="mx-auto max-w-lg px-6 pb-16 pt-28 text-center">
-          <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-cyan-glow">
+          <p className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-[#ffd700]">
             03 — Ranked
           </p>
           <h2 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
@@ -284,7 +271,7 @@ function GameplayFooter() {
       {/* Gameplay video — more breathing room above so it doesn't feel crammed */}
       <div className="mx-auto max-w-6xl px-6 pb-24 pt-10">
         <div className="mb-10 text-center">
-          <p className="mb-3 font-mono text-xs uppercase tracking-[0.4em] text-cyan-glow/80">
+          <p className="mb-3 font-mono text-xs uppercase tracking-[0.4em] text-[#e6c074]/80">
             Gameplay
           </p>
           <h2 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
@@ -299,7 +286,7 @@ function GameplayFooter() {
             <button
               type="button"
               aria-label="Play gameplay trailer"
-              className="flex h-20 w-20 items-center justify-center rounded-full border border-cyan-glow/50 bg-[#06060a]/60 text-cyan-glow shadow-glow-cyan backdrop-blur-md transition-transform hover:scale-105"
+              className="flex h-20 w-20 items-center justify-center rounded-full border border-[#ffd700]/50 bg-[#06060a]/60 text-[#ffd700] shadow-[0_0_24px_rgba(255,215,0,0.3)] backdrop-blur-md transition-transform hover:scale-105"
             >
               <svg width="22" height="26" viewBox="0 0 22 26" fill="currentColor">
                 <path d="M0 1.6c0-1.2 1.3-2 2.4-1.4l18 11.4a1.6 1.6 0 0 1 0 2.8l-18 11.4A1.6 1.6 0 0 1 0 24.4z" />
@@ -312,7 +299,7 @@ function GameplayFooter() {
       <footer className="border-t border-white/10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-6 py-12 sm:flex-row">
           <div className="text-center sm:text-left">
-            <p className="font-sans text-2xl font-black tracking-tight text-foreground text-glow-cyan">
+            <p className="font-sans text-2xl font-black tracking-tight text-[#ffe8a0]">
               GAITTAMON
             </p>
             <p className="mt-1 text-sm text-foreground/50">
@@ -320,16 +307,16 @@ function GameplayFooter() {
             </p>
           </div>
           <nav className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 font-mono text-xs uppercase tracking-[0.2em] text-foreground/60">
-            <a href="#" className="transition-colors hover:text-cyan-glow">
+            <a href="#" className="transition-colors hover:text-[#ffd700]">
               Play
             </a>
-            <a href="#" className="transition-colors hover:text-cyan-glow">
+            <a href="#" className="transition-colors hover:text-[#ffd700]">
               Cards
             </a>
-            <a href="#" className="transition-colors hover:text-cyan-glow">
+            <a href="#" className="transition-colors hover:text-[#ffd700]">
               Ranked
             </a>
-            <a href="#" className="transition-colors hover:text-cyan-glow">
+            <a href="#" className="transition-colors hover:text-[#ffd700]">
               Discord
             </a>
           </nav>
